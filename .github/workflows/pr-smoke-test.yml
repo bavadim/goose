@@ -2,9 +2,6 @@ on:
   pull_request:
     branches:
       - distro
-  push:
-    branches:
-      - distro
   workflow_dispatch:
     inputs:
       branch:

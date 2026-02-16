@@ -32,9 +32,6 @@ jobs:
     with:
       signing: false
 
-  bundle-desktop-linux:
-    uses: ./.github/workflows/bundle-desktop-linux.yml
-
   bundle-desktop-windows:
     uses: ./.github/workflows/bundle-desktop-windows.yml
     with:

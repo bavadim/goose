@@ -7,7 +7,7 @@ on:
     paths-ignore:
       - "documentation/**"
     branches:
-      - distro
+      - main
 
 name: Canary
 
