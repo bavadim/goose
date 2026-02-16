@@ -78,6 +78,8 @@ jobs:
     with:
       version: ${{ needs.prepare-version.outputs.version }}
       signing: false
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   # ------------------------------------------------------------
   # 5) Bundle Desktop App (Linux) - builds goosed and Electron app
@@ -121,6 +123,8 @@ jobs:
         with:
           subject-path: |
             goose-*.tar.bz2
+            goose-*.zip
+            InsightStream-goose*.zip
             Goose*.zip
             *.deb
             *.rpm
@@ -136,6 +140,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: |
             goose-*.tar.bz2
+            goose-*.zip
+            InsightStream-goose*.zip
             Goose*.zip
             *.deb
             *.rpm

@@ -251,8 +251,14 @@ jobs:
           mkdir -p out/Goose-win32-x64/
           cp Goose-win32-x64.zip out/Goose-win32-x64/
 
+      - name: Normalize artifact filename
+        shell: bash
+        run: |
+          cp ui/desktop/out/Goose-win32-x64/Goose-win32-x64.zip \
+            ui/desktop/out/Goose-win32-x64/InsightStream-goose-windows-x64.zip
+
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: Goose-win32-x64
-          path: ui/desktop/out/Goose-win32-x64/Goose-win32-x64.zip
+          name: InsightStream-goose-windows-x64
+          path: ui/desktop/out/Goose-win32-x64/InsightStream-goose-windows-x64.zip

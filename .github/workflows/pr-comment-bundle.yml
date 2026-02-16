@@ -111,6 +111,8 @@ jobs:
     with:
       signing: false
       ref: ${{ needs.trigger-on-command.outputs.pr_sha }}
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   pr-comment-arm64:
     name: PR Comment with macOS ARM64 App
@@ -123,7 +125,7 @@ jobs:
       - name: Download ARM64 artifact
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with:
-          name: Goose-darwin-arm64
+          name: InsightStream-goose-macos-arm64
           path: arm64-dist
 
       - name: Comment on PR with ARM64 download link
@@ -133,7 +135,7 @@ jobs:
           body: |
             ### macOS ARM64 Desktop App (Apple Silicon)
 
-            [📱 Download macOS Desktop App (arm64, unsigned)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/Goose-darwin-arm64.zip)
+            [📱 Download macOS Desktop App (arm64, unsigned)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/InsightStream-goose-macos-arm64.zip)
 
             **Instructions:**
             

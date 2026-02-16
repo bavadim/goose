@@ -286,12 +286,19 @@ jobs:
           # Check disk space after cleanup
           df -h
 
+      - name: Normalize artifact filename
+        run: |
+          set -euo pipefail
+          CANONICAL_ZIP_PATH="${BUNDLE_DIR}/InsightStream-goose-macos-arm64.zip"
+          cp "${ZIP_PATH}" "${CANONICAL_ZIP_PATH}"
+          echo "CANONICAL_ZIP_PATH=${CANONICAL_ZIP_PATH}" >> "$GITHUB_ENV"
+
       - name: Upload Desktop artifact
         id: upload-app-bundle
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: Goose-darwin-arm64
-          path: ${{ env.ZIP_PATH }}
+          name: InsightStream-goose-macos-arm64
+          path: ${{ env.CANONICAL_ZIP_PATH }}
 
       - name: Quick launch test (macOS)
         if: ${{ inputs.quick_test }}

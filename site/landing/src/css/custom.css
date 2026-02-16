@@ -1,0 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap");
+
+:root {
+  --ifm-color-primary: #0f6ad9;
+  --ifm-color-primary-dark: #0b58b6;
+  --ifm-color-primary-light: #1e7ceb;
+  --ifm-background-color: #f7f8fa;
+  --ifm-font-family-base: "IBM Plex Sans", sans-serif;
+  --ifm-heading-font-family: "Manrope", sans-serif;
+  --ifm-link-color: #0f6ad9;
+  --ifm-navbar-background-color: rgba(255, 255, 255, 0.92);
+  --ifm-footer-background-color: #102033;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: #102033;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--ifm-heading-font-family);
+  letter-spacing: -0.01em;
+}
+
+.container {
+  max-width: 1120px;
+}
+
+.navbar {
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #d9e1e8;
+}

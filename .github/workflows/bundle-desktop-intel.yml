@@ -218,11 +218,16 @@ jobs:
           # Check disk space after cleanup
           df -h
 
+      - name: Normalize artifact filename
+        run: |
+          cp ui/desktop/out/Goose-darwin-x64/Goose_intel_mac.zip \
+            ui/desktop/out/Goose-darwin-x64/InsightStream-goose-macos-x64.zip
+
       - name: Upload Desktop artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: Goose-darwin-x64
-          path: ui/desktop/out/Goose-darwin-x64/Goose_intel_mac.zip
+          name: InsightStream-goose-macos-x64
+          path: ui/desktop/out/Goose-darwin-x64/InsightStream-goose-macos-x64.zip
 
       - name: Quick launch test (macOS)
         if: ${{ inputs.quick_test }}

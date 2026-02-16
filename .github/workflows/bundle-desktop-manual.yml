@@ -17,3 +17,5 @@ jobs:
     with:
       signing: false
       ref: ${{ inputs.branch }}
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

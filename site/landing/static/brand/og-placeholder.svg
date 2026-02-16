@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0E1C2F"/>
+  <circle cx="168" cy="315" r="92" fill="#18A37A"/>
+  <path d="M168 222L187 295H260L201 338L222 411L168 370L114 411L135 338L76 295H149L168 222Z" fill="#F7F8FA"/>
+  <text x="300" y="300" fill="#F7F8FA" font-family="Manrope, Arial, sans-serif" font-size="86" font-weight="800">InsightStream</text>
+  <text x="300" y="372" fill="#D7E2ED" font-family="IBM Plex Sans, Arial, sans-serif" font-size="36">RPA-агент для повседневной работы на компьютере</text>
+</svg>

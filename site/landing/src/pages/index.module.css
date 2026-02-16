@@ -1,0 +1,121 @@
+.page {
+  padding-bottom: 4rem;
+}
+
+.hero {
+  padding: 4.5rem 0 3rem;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.heroTitle {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin-bottom: 1rem;
+}
+
+.heroSubtitle {
+  font-size: 1.12rem;
+  color: #52606d;
+  max-width: 58ch;
+}
+
+.ctaRow {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.heroHint {
+  margin-top: 0.75rem;
+  color: #52606d;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #d9e1e8;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 24px rgba(16, 32, 51, 0.08);
+}
+
+.heroCard {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.section {
+  padding: 1.5rem 0;
+}
+
+.section h2 {
+  margin-bottom: 1rem;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.caseList {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.downloadGrid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1rem;
+}
+
+.downloadButton {
+  display: inline-block;
+  margin: 0.4rem 0.5rem 0.4rem 0;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  background: #0f6ad9;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.downloadButton:hover {
+  background: #0b58b6;
+  color: #fff;
+}
+
+.muted {
+  color: #52606d;
+}
+
+.price {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.footer {
+  border-top: 1px solid #d9e1e8;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+@media (max-width: 996px) {
+  .heroGrid,
+  .downloadGrid,
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding-top: 3.25rem;
+  }
+}

@@ -23,6 +23,8 @@ jobs:
       contents: read
     with:
       signing: false
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   bundle-desktop-intel:
     uses: ./.github/workflows/bundle-desktop-intel.yml

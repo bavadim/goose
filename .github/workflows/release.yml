@@ -52,6 +52,7 @@ jobs:
       signing: true
     secrets:
       OSX_CODESIGN_ROLE: ${{ secrets.OSX_CODESIGN_ROLE }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   # ------------------------------------------------------------
   # 4) Bundle Desktop App (macOS)
@@ -107,6 +108,7 @@ jobs:
           subject-path: |
             goose-*.tar.bz2
             goose-*.zip
+            InsightStream-goose*.zip
             Goose*.zip
             *.deb
             *.rpm
@@ -121,6 +123,7 @@ jobs:
           artifacts: |
             goose-*.tar.bz2
             goose-*.zip
+            InsightStream-goose*.zip
             Goose*.zip
             *.deb
             *.rpm
@@ -140,6 +143,7 @@ jobs:
           artifacts: |
             goose-*.tar.bz2
             goose-*.zip
+            InsightStream-goose*.zip
             Goose*.zip
             *.deb
             *.rpm
