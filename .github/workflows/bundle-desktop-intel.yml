@@ -136,6 +136,31 @@ jobs:
           fi
         working-directory: ui/desktop
 
+      - name: Resolve bundle paths
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR=$(find ui/desktop/out -maxdepth 1 -type d -name '*-darwin-x64' | head -n 1)
+          if [ -z "${BUNDLE_DIR}" ]; then
+            echo "Failed to resolve Intel macOS bundle directory"
+            exit 1
+          fi
+          APP_PATH=$(find "${BUNDLE_DIR}" -maxdepth 1 -type d -name '*.app' | head -n 1)
+          ZIP_PATH=$(find "${BUNDLE_DIR}" -maxdepth 1 -type f -name '*.zip' | head -n 1)
+          if [ -z "${APP_PATH}" ] || [ -z "${ZIP_PATH}" ]; then
+            echo "Failed to resolve Intel macOS bundle artifacts"
+            exit 1
+          fi
+          BUNDLE_DIR=$(realpath "${BUNDLE_DIR}")
+          APP_PATH=$(realpath "${APP_PATH}")
+          ZIP_PATH=$(realpath "${ZIP_PATH}")
+          APP_EXECUTABLE="${APP_PATH}/Contents/MacOS/$(basename "${APP_PATH}" .app)"
+          {
+            echo "BUNDLE_DIR=${BUNDLE_DIR}"
+            echo "APP_PATH=${APP_PATH}"
+            echo "ZIP_PATH=${ZIP_PATH}"
+            echo "APP_EXECUTABLE=${APP_EXECUTABLE}"
+          } >> "$GITHUB_ENV"
+
       - name: Configure AWS credentials
         if: ${{ inputs.signing }}
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708  # v5.1.1
@@ -152,10 +177,10 @@ jobs:
           source_job_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           unsigned_url="s3://block-goose-artifacts-bucket-production/unsigned/goose-${GITHUB_SHA}-${{ github.run_id }}-intel.zip"
 
-          zip -q -u -r out/Goose-darwin-x64/Goose_intel_mac.zip entitlements.plist
+          zip -q -u -r "${ZIP_PATH}" entitlements.plist
 
           # upload unsigned goose to transfer bucket so it can be passed to lambda
-          aws s3 cp --quiet out/Goose-darwin-x64/Goose_intel_mac.zip "${unsigned_url}"
+          aws s3 cp --quiet "${ZIP_PATH}" "${unsigned_url}"
 
           # begin signing
           echo "🚀 launching signing process"
@@ -207,7 +232,7 @@ jobs:
 
           # download the signed app from S3
           echo "⬇️ downloading signed app"
-          aws s3 cp --quiet "${signed_url}" out/Goose-darwin-x64/Goose_intel_mac.zip
+          aws s3 cp --quiet "${signed_url}" "${ZIP_PATH}"
         working-directory: ui/desktop
 
       - name: Final cleanup before artifact upload
@@ -220,32 +245,34 @@ jobs:
 
       - name: Normalize artifact filename
         run: |
-          cp ui/desktop/out/Goose-darwin-x64/Goose_intel_mac.zip \
-            ui/desktop/out/Goose-darwin-x64/InsightStream-goose-macos-x64.zip
+          set -euo pipefail
+          CANONICAL_ZIP_PATH="${BUNDLE_DIR}/InsightStream-goose-macos-x64.zip"
+          cp "${ZIP_PATH}" "${CANONICAL_ZIP_PATH}"
+          echo "CANONICAL_ZIP_PATH=${CANONICAL_ZIP_PATH}" >> "$GITHUB_ENV"
 
       - name: Upload Desktop artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: InsightStream-goose-macos-x64
-          path: ui/desktop/out/Goose-darwin-x64/InsightStream-goose-macos-x64.zip
+          path: ${{ env.CANONICAL_ZIP_PATH }}
 
       - name: Quick launch test (macOS)
         if: ${{ inputs.quick_test }}
         run: |
           # Ensure no quarantine attributes (if needed)
-          xattr -cr "ui/desktop/out/Goose-darwin-x64/Goose.app"
-          echo "Opening Goose.app..."
-          open -g "ui/desktop/out/Goose-darwin-x64/Goose.app"
+          xattr -cr "${APP_PATH}"
+          echo "Opening ${APP_PATH}..."
+          open -g "${APP_PATH}"
 
           # Give the app a few seconds to start and write logs
           sleep 5
 
           # Check if it's running
-          if pgrep -f "Goose.app/Contents/MacOS/Goose" > /dev/null; then
+          if pgrep -f "${APP_EXECUTABLE}" > /dev/null; then
             echo "App appears to be running."
           else
             echo "App did not stay open. Possible crash or startup error."
             exit 1
           fi
           # Kill the app to clean up
-          pkill -f "Goose.app/Contents/MacOS/Goose"
+          pkill -f "${APP_EXECUTABLE}"

@@ -35,9 +35,9 @@ export default function Home(): JSX.Element {
     >
       <main className={styles.page}>
         <section id="hero" className="py-5">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <div className="row g-4 align-items-stretch">
-              <div className="col-lg-8">
+              <div className="col-lg-7">
                 <h1 className="display-5 fw-bold mb-3">InsightStream — порядок в рабочих файлах и задачах за минуты</h1>
                 <p className="lead text-secondary mb-4">
                   Десктоп-агент для предпринимателей и офисных команд: помогает находить документы, наводить порядок и
@@ -52,28 +52,25 @@ export default function Home(): JSX.Element {
                     Как получить ключ
                   </a>
                 </div>
-                <p className="text-secondary mb-0">Можно попробовать бесплатно. Нужен ключ — {email}.</p>
+                <p className="text-secondary mb-2">Демо-ключ действует 3 дня. Нужен ключ — {email}.</p>
+                <p className={styles.note + " mb-0"}>
+                  Если в приложении появляется ошибка доступа, запросите рабочий ключ по email.
+                </p>
               </div>
 
-              <div className="col-lg-4">
-                <div className="card h-100 shadow-sm border-0">
-                  <div className="card-body">
-                    <h3 className="h5">Что можно сделать бесплатно</h3>
-                    <ul className="mb-3">
-                      <li>Проверить основные сценарии на своих файлах</li>
-                      <li>Оценить скорость поиска и структурирования</li>
-                      <li>Понять, подходит ли агент вашей команде</li>
-                    </ul>
-                    <p className="text-secondary mb-0">После демо в приложении будет простой переход к запросу ключа.</p>
-                  </div>
-                </div>
+              <div className="col-lg-5">
+                <img
+                  src="/is-goose/illustrations/hero-workflow.svg"
+                  alt="Схема работы InsightStream: скачать демо, использовать 3 дня, запросить ключ"
+                  className={styles.heroImage}
+                />
               </div>
             </div>
           </div>
         </section>
 
         <section id="features" className="py-4">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">Что умеет InsightStream</h2>
             <div className="row g-3">
               <div className="col-md-6">
@@ -113,9 +110,9 @@ export default function Home(): JSX.Element {
         </section>
 
         <section id="cases" className="py-4">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">Кейсы из повседневной работы</h2>
-            <div className="card shadow-sm border-0">
+            <div className="card shadow-sm border-0 mb-3">
               <div className="card-body">
                 <ol className="mb-0">
                   {CASES.map((item) => (
@@ -126,23 +123,33 @@ export default function Home(): JSX.Element {
                 </ol>
               </div>
             </div>
+            <img
+              src="/is-goose/illustrations/use-cases.svg"
+              alt="Иллюстрация типовых кейсов: файлы, поиск, документы"
+              className={styles.casesImage}
+            />
           </div>
         </section>
 
         <section id="download" className="py-4">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">Скачайте демо для macOS и Windows</h2>
             <div className="row g-3">
               <div className="col-lg-8">
                 <div className="card h-100 shadow-sm border-0">
                   <div className="card-body">
-                    <p className="mb-3">Установка занимает несколько минут. Демо-режим бесплатный, затем можно запросить ключ.</p>
+                    <p className="mb-2">Установка занимает несколько минут. Демо-ключ активен 3 дня.</p>
+                    <p className="mb-3 text-secondary">
+                      После истечения демо или ошибки доступа запросите рабочий ключ по email.
+                    </p>
                     <div className="d-grid gap-2">
                       {downloadLinks.map((link) => (
-                        <a key={link.id} className="btn btn-primary text-start" href={link.url}>
-                          <i className={`bi ${link.iconClass} me-2`} aria-hidden="true" />
-                          {link.label}
-                          <span className="ms-2 text-light-emphasis">{link.minSystem}</span>
+                        <a key={link.id} className={`btn btn-outline-primary ${styles.platformButton}`} href={link.url}>
+                          <span className={styles.platformLeft}>
+                            <i className={`bi ${link.iconClass} ${styles.platformIcon}`} aria-hidden="true" />
+                            <span>{link.label}</span>
+                          </span>
+                          <span className={styles.platformMeta}>{link.minSystem}</span>
                         </a>
                       ))}
                     </div>
@@ -171,7 +178,7 @@ export default function Home(): JSX.Element {
         </section>
 
         <section id="pricing" className="py-4">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">Один тариф без сложных опций</h2>
             <div className="card shadow-sm border-0">
               <div className="card-body">
@@ -193,14 +200,14 @@ export default function Home(): JSX.Element {
         </section>
 
         <section id="faq" className="py-4">
-          <div className="container">
+          <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">FAQ</h2>
             <div className="row g-3">
               <div className="col-md-6">
                 <article className="card h-100 shadow-sm border-0">
                   <div className="card-body">
                     <h3 className="h5">Что можно делать бесплатно?</h3>
-                    <p className="mb-0">В демо можно протестировать основные сценарии на своих рабочих файлах.</p>
+                    <p className="mb-0">Демо-ключ действует 3 дня и позволяет протестировать основные сценарии на ваших файлах.</p>
                   </div>
                 </article>
               </div>
@@ -208,7 +215,7 @@ export default function Home(): JSX.Element {
                 <article className="card h-100 shadow-sm border-0">
                   <div className="card-body">
                     <h3 className="h5">Что будет после демо?</h3>
-                    <p className="mb-0">Приложение предложит запросить ключ и продолжить работу без переустановки.</p>
+                    <p className="mb-0">После истечения демо или ошибки доступа запросите ключ на {email}.</p>
                   </div>
                 </article>
               </div>

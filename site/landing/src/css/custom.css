@@ -38,3 +38,10 @@ h6 {
   backdrop-filter: blur(8px);
   border-bottom: 1px solid #d9e1e8;
 }
+
+.navbar__inner,
+.footer .container {
+  width: 1120px;
+  max-width: calc(100% - 2rem);
+  margin: 0 auto;
+}

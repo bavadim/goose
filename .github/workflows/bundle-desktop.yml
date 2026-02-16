@@ -186,7 +186,7 @@ jobs:
             exit 1
           fi
           APP_PATH=$(find "${BUNDLE_DIR}" -maxdepth 1 -type d -name '*.app' | head -n 1)
-          ZIP_PATH=$(find "${BUNDLE_DIR}" -maxdepth 1 -type f -name 'InsightStream-goose.zip' | head -n 1)
+          ZIP_PATH=$(find "${BUNDLE_DIR}" -maxdepth 1 -type f -name '*.zip' | head -n 1)
           if [ -z "${APP_PATH}" ] || [ -z "${ZIP_PATH}" ]; then
             echo "Failed to resolve macOS bundle artifacts"
             exit 1

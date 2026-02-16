@@ -145,11 +145,18 @@ jobs:
         shell: bash
         run: |
           cd ui/desktop
-          mkdir -p ./out/Goose-win32-x64/resources/bin
-          cp -r src/bin/* out/Goose-win32-x64/resources/bin/
+          WIN_OUT_DIR=$(find ./out -maxdepth 1 -type d -name '*-win32-x64' | head -n 1)
+          if [ -z "${WIN_OUT_DIR}" ]; then
+            echo "Windows output directory not found"
+            exit 1
+          fi
+          WIN_OUT_DIR=$(realpath "${WIN_OUT_DIR}")
+          echo "WIN_OUT_DIR=${WIN_OUT_DIR}" >> "$GITHUB_ENV"
+          mkdir -p "${WIN_OUT_DIR}/resources/bin"
+          cp -r src/bin/* "${WIN_OUT_DIR}/resources/bin/"
 
           mkdir -p ./dist-windows
-          cp -r ./out/Goose-win32-x64/* ./dist-windows/
+          cp -r "${WIN_OUT_DIR}/"* ./dist-windows/
 
           echo "📋 Final flat distribution structure:"
           ls -la ./dist-windows/
@@ -243,22 +250,22 @@ jobs:
           cd ui/desktop
           echo "📦 Creating Windows zip package..."
 
-          7z a -tzip "Goose-win32-x64.zip" dist-windows/
+          ZIP_PATH="${WIN_OUT_DIR}/Goose-win32-x64.zip"
+          7z a -tzip "${ZIP_PATH}" dist-windows/
+          echo "ZIP_PATH=${ZIP_PATH}" >> "$GITHUB_ENV"
 
           echo "✅ Windows zip package created:"
-          ls -la Goose-win32-x64.zip
-
-          mkdir -p out/Goose-win32-x64/
-          cp Goose-win32-x64.zip out/Goose-win32-x64/
+          ls -la "${ZIP_PATH}"
 
       - name: Normalize artifact filename
         shell: bash
         run: |
-          cp ui/desktop/out/Goose-win32-x64/Goose-win32-x64.zip \
-            ui/desktop/out/Goose-win32-x64/InsightStream-goose-windows-x64.zip
+          CANONICAL_ZIP_PATH="${WIN_OUT_DIR}/InsightStream-goose-windows-x64.zip"
+          cp "${ZIP_PATH}" "${CANONICAL_ZIP_PATH}"
+          echo "CANONICAL_ZIP_PATH=${CANONICAL_ZIP_PATH}" >> "$GITHUB_ENV"
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: InsightStream-goose-windows-x64
-          path: ui/desktop/out/Goose-win32-x64/InsightStream-goose-windows-x64.zip
+          path: ${{ env.CANONICAL_ZIP_PATH }}

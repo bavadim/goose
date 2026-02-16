@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" fill="none">
+  <rect width="960" height="540" rx="28" fill="#F8FAFC"/>
+  <rect x="54" y="54" width="852" height="432" rx="20" fill="white" stroke="#D9E1E8"/>
+
+  <rect x="96" y="98" width="230" height="160" rx="16" fill="#EFF6FF"/>
+  <circle cx="136" cy="136" r="18" fill="#0F6AD9"/>
+  <rect x="166" y="124" width="122" height="13" rx="6" fill="#1D4ED8" fill-opacity="0.25"/>
+  <rect x="166" y="146" width="95" height="11" rx="5" fill="#93C5FD"/>
+  <rect x="118" y="186" width="186" height="11" rx="5" fill="#BFDBFE"/>
+  <rect x="118" y="206" width="158" height="11" rx="5" fill="#DBEAFE"/>
+
+  <rect x="366" y="98" width="230" height="160" rx="16" fill="#F0FDF4"/>
+  <circle cx="406" cy="136" r="18" fill="#16A34A"/>
+  <rect x="436" y="124" width="122" height="13" rx="6" fill="#166534" fill-opacity="0.2"/>
+  <rect x="436" y="146" width="95" height="11" rx="5" fill="#86EFAC"/>
+  <rect x="388" y="186" width="186" height="11" rx="5" fill="#BBF7D0"/>
+  <rect x="388" y="206" width="158" height="11" rx="5" fill="#DCFCE7"/>
+
+  <rect x="636" y="98" width="230" height="160" rx="16" fill="#FFF7ED"/>
+  <circle cx="676" cy="136" r="18" fill="#EA580C"/>
+  <rect x="706" y="124" width="122" height="13" rx="6" fill="#9A3412" fill-opacity="0.2"/>
+  <rect x="706" y="146" width="95" height="11" rx="5" fill="#FDBA74"/>
+  <rect x="658" y="186" width="186" height="11" rx="5" fill="#FED7AA"/>
+  <rect x="658" y="206" width="158" height="11" rx="5" fill="#FFEDD5"/>
+
+  <rect x="96" y="292" width="770" height="150" rx="18" fill="#0F172A"/>
+  <text x="128" y="340" fill="#F8FAFC" font-family="Manrope, Arial, sans-serif" font-size="26" font-weight="800">Типовые задачи для демо</text>
+  <text x="128" y="372" fill="#CBD5E1" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Навести порядок в папке проекта</text>
+  <text x="128" y="398" fill="#CBD5E1" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Найти нужный документ по описанию</text>
+  <text x="128" y="424" fill="#CBD5E1" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Подготовить черновик рабочего документа</text>
+</svg>
