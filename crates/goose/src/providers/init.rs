@@ -8,6 +8,7 @@ use super::{
     chatgpt_codex::ChatGptCodexProvider,
     claude_code::ClaudeCodeProvider,
     codex::CodexProvider,
+    compressa::CompressaProvider,
     cursor_agent::CursorAgentProvider,
     databricks::DatabricksProvider,
     gcpvertexai::GcpVertexAIProvider,
@@ -49,6 +50,7 @@ async fn init_registry() -> RwLock<ProviderRegistry> {
         registry.register::<BedrockProvider>(false);
         registry.register::<ChatGptCodexProvider>(true);
         registry.register::<ClaudeCodeProvider>(true);
+        registry.register::<CompressaProvider>(true);
         registry.register::<CodexProvider>(true);
         registry.register::<CursorAgentProvider>(false);
         registry.register::<DatabricksProvider>(true);

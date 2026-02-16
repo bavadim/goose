@@ -10,6 +10,7 @@ pub mod chatgpt_codex;
 pub mod claude_code;
 pub(crate) mod cli_common;
 pub mod codex;
+pub mod compressa;
 pub mod cursor_agent;
 pub mod databricks;
 pub mod embedding;
