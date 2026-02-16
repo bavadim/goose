@@ -204,6 +204,27 @@ jobs:
             echo "APP_EXECUTABLE=${APP_EXECUTABLE}"
           } >> "$GITHUB_ENV"
 
+      - name: Validate arm64 binaries in unsigned app bundle
+        run: |
+          set -euo pipefail
+          APP_BIN="${APP_EXECUTABLE}"
+          GOOSED_BIN="${APP_PATH}/Contents/Resources/bin/goosed"
+
+          for BIN in "${APP_BIN}" "${GOOSED_BIN}"; do
+            if [ ! -f "${BIN}" ]; then
+              echo "Missing expected binary: ${BIN}"
+              exit 1
+            fi
+
+            FILE_OUTPUT="$(file "${BIN}")"
+            echo "${FILE_OUTPUT}"
+
+            if [[ "${FILE_OUTPUT}" != *"arm64"* && "${FILE_OUTPUT}" != *"universal"* ]]; then
+              echo "Binary is not arm64/universal: ${BIN}"
+              exit 1
+            fi
+          done
+
       - name: Configure AWS credentials
         if: ${{ inputs.signing }}
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708  # v5.1.1
@@ -277,6 +298,32 @@ jobs:
           echo "⬇️ downloading signed app"
           aws s3 cp --quiet "${signed_url}" "${ZIP_PATH}"
         working-directory: ui/desktop
+
+      - name: Validate signed app bundle
+        if: ${{ inputs.signing }}
+        run: |
+          set -euo pipefail
+          CHECK_DIR="$(mktemp -d)"
+          ditto -x -k "${ZIP_PATH}" "${CHECK_DIR}"
+          SIGNED_APP_PATH="$(find "${CHECK_DIR}" -maxdepth 2 -type d -name '*.app' | head -n 1)"
+          if [ -z "${SIGNED_APP_PATH}" ]; then
+            echo "Failed to locate signed app after unzip"
+            exit 1
+          fi
+
+          SIGNED_APP_BIN="${SIGNED_APP_PATH}/Contents/MacOS/$(basename "${SIGNED_APP_PATH}" .app)"
+          SIGNED_GOOSED_BIN="${SIGNED_APP_PATH}/Contents/Resources/bin/goosed"
+
+          for BIN in "${SIGNED_APP_BIN}" "${SIGNED_GOOSED_BIN}"; do
+            FILE_OUTPUT="$(file "${BIN}")"
+            echo "${FILE_OUTPUT}"
+            if [[ "${FILE_OUTPUT}" != *"arm64"* && "${FILE_OUTPUT}" != *"universal"* ]]; then
+              echo "Signed artifact contains non-arm64 binary: ${BIN}"
+              exit 1
+            fi
+          done
+
+          codesign --verify --deep --strict --verbose=2 "${SIGNED_APP_PATH}"
 
       - name: Final cleanup before artifact upload
         run: |

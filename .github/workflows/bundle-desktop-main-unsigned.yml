@@ -1,4 +1,4 @@
-name: Bundle Desktop Artifacts (Unsigned)
+name: Bundle Desktop Artifacts (Conference Signed)
 
 on:
   push:
@@ -22,8 +22,9 @@ jobs:
       id-token: write
       contents: read
     with:
-      signing: false
+      signing: true
     secrets:
+      OSX_CODESIGN_ROLE: ${{ secrets.OSX_CODESIGN_ROLE }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   bundle-desktop-intel:
@@ -32,15 +33,17 @@ jobs:
       id-token: write
       contents: read
     with:
-      signing: false
+      signing: true
+    secrets:
+      OSX_CODESIGN_ROLE: ${{ secrets.OSX_CODESIGN_ROLE }}
 
   bundle-desktop-windows:
     uses: ./.github/workflows/bundle-desktop-windows.yml
     with:
       signing: false
 
-  release-stable:
-    name: Publish Desktop Bundles to Stable Release
+  release-conference:
+    name: Publish Desktop Bundles to Conference Release
     runs-on: ubuntu-latest
     needs: [bundle-desktop, bundle-desktop-intel, bundle-desktop-windows]
     permissions:
@@ -54,11 +57,11 @@ jobs:
       - name: List release assets
         run: ls -la
 
-      - name: Publish stable release
+      - name: Publish conference release
         uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b  # v1.20.0
         with:
-          tag: stable
-          name: Stable
+          tag: stable-conference
+          name: Stable (Conference)
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: |
             InsightStream-goose-macos-arm64.zip
@@ -66,5 +69,6 @@ jobs:
             InsightStream-goose-windows-x64.zip
           allowUpdates: true
           replacesArtifacts: true
+          makeLatest: false
           omitBody: true
           omitPrereleaseDuringUpdate: true
