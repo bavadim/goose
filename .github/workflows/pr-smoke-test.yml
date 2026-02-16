@@ -1,16 +1,16 @@
 on:
   pull_request:
     branches:
-      - main
+      - distro
   push:
     branches:
-      - main
+      - distro
   workflow_dispatch:
     inputs:
       branch:
         description: "Branch to test"
         required: true
-        default: "main"
+        default: "distro"
         type: string
 
 name: Live Provider Tests

@@ -46,7 +46,7 @@ jobs:
         if: inputs.signing && inputs.signing == true
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708  # v5.1.1
         with:
-          role-to-assume: ${{ github.ref == 'refs/heads/main' && secrets.WINDOW_SIGNING_ROLE || secrets.WINDOW_SIGNING_ROLE_TAG }}
+          role-to-assume: ${{ github.ref == 'refs/heads/distro' && secrets.WINDOW_SIGNING_ROLE || secrets.WINDOW_SIGNING_ROLE_TAG }}
           aws-region: us-west-2
 
       - name: Set up Node.js

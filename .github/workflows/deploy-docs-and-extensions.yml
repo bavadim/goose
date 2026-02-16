@@ -3,7 +3,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main
+      - distro
     paths:
       - 'documentation/**'
 
@@ -54,7 +54,7 @@ jobs:
         run: ./scripts/verify-build.sh
 
       - name: Checkout gh-pages branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/distro'
         continue-on-error: true      # Branch may not exist on first deploy or in forks
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
@@ -62,7 +62,7 @@ jobs:
           path: gh-pages-current
 
       - name: Preserve pr-preview directory
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/distro'
         run: |
           # Copy pr-preview from current gh-pages to the new build (if it exists)
           if [ -d "gh-pages-current/pr-preview" ]; then
@@ -73,7 +73,7 @@ jobs:
           fi
 
       - name: Deploy to /gh-pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/distro'
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e  # v4.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
