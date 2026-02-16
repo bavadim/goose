@@ -42,7 +42,8 @@ export const convertToLocaleDateString = (lastModified: string): string => {
 
 export const getStorageDirectory = (isGlobal: boolean): string => {
   if (isGlobal) {
-    return '~/.config/goose/recipes';
+    const configDir = (window.appConfig.get('GOOSE_CONFIG_DIR') as string) || '~/.config/goose';
+    return `${configDir}/recipes`;
   } else {
     // For directory recipes, build absolute path using working directory
     const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') as string;

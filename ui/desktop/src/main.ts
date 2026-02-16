@@ -68,6 +68,15 @@ const defaultSettings: Settings = {
   keyboardShortcuts: defaultKeyboardShortcuts,
 };
 
+const getGoosePathRoot = (): string => {
+  if (process.env.GOOSE_PATH_ROOT) {
+    return process.env.GOOSE_PATH_ROOT;
+  }
+  return path.join(app.getPath('userData'), 'goose');
+};
+
+const getGooseConfigDir = (): string => path.join(getGoosePathRoot(), 'config');
+
 function getSettings(): Settings {
   if (fsSync.existsSync(SETTINGS_FILE)) {
     const data = fsSync.readFileSync(SETTINGS_FILE, 'utf8');
@@ -495,7 +504,7 @@ const createChat = async (
   const goosedResult = await startGoosed({
     serverSecret,
     dir: dir || os.homedir(),
-    env: { GOOSE_PATH_ROOT: process.env.GOOSE_PATH_ROOT },
+    env: { GOOSE_PATH_ROOT: getGoosePathRoot() },
     externalGoosed: settings.externalGoosed,
     isPackaged: app.isPackaged,
     resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
@@ -544,6 +553,7 @@ const createChat = async (
           ...appConfig,
           GOOSE_API_HOST: baseUrl,
           GOOSE_WORKING_DIR: workingDir,
+          GOOSE_CONFIG_DIR: getGooseConfigDir(),
           REQUEST_DIR: dir,
           GOOSE_BASE_URL_SHARE: baseUrlShare,
           GOOSE_VERSION: version,

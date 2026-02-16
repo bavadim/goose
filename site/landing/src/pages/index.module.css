@@ -29,28 +29,6 @@
   background: #fff;
 }
 
-.photoGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.photoCard {
-  margin: 0;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid #d9e1e8;
-  box-shadow: 0 10px 26px rgba(16, 32, 51, 0.1);
-  background: #fff;
-}
-
-.photoCard img {
-  display: block;
-  width: 100%;
-  height: 220px;
-  object-fit: cover;
-}
-
 .platformButton {
   display: flex;
   align-items: center;
@@ -112,14 +90,6 @@
   .page section {
     padding-top: 2.4rem !important;
     padding-bottom: 2.4rem !important;
-  }
-
-  .photoGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .photoCard img {
-    height: 240px;
   }
 
   .platformButton {

@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 const landingGhOwner = process.env.LANDING_GH_OWNER ?? "redsquad-tech";
 const landingGhRepo = process.env.LANDING_GH_REPO ?? "is-goose";
 const landingContactEmail = process.env.LANDING_CONTACT_EMAIL ?? "bavadim@gmail.com";
-const baseUrl = process.env.LANDING_BASE_URL ?? `/${landingGhRepo}/`;
+const baseUrl = "/is-goose/";
 
 const config: Config = {
   title: "InsightStream",
@@ -55,6 +55,11 @@ const config: Config = {
 
   themeConfig: {
     image: "brand/logo_light.png",
+    colorMode: {
+      defaultMode: "light",
+      disableSwitch: true,
+      respectPrefersColorScheme: false
+    },
     navbar: {
       title: "InsightStream",
       logo: {

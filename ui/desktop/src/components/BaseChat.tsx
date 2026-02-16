@@ -388,7 +388,7 @@ export default function BaseChat({
         <div className="flex flex-col flex-1 mb-0.5 min-h-0 relative">
           <div className="absolute top-3 right-4 z-[60] flex flex-row items-center gap-1">
             <a
-              href="https://block.github.io/goose"
+              href="https://redsquad-tech.github.io/is-goose"
               target="_blank"
               rel="noopener noreferrer"
               className="no-drag flex flex-row items-center gap-1 hover:opacity-80 transition-opacity"

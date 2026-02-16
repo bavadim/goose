@@ -50,7 +50,7 @@ interface ConfigProviderProps {
 
 export class MalformedConfigError extends Error {
   constructor() {
-    super('Check contents of ~/.config/goose/config.yaml');
+    super('Check contents of your Goose config.yaml file');
     this.name = 'MalformedConfigError';
     Object.setPrototypeOf(this, MalformedConfigError.prototype);
   }

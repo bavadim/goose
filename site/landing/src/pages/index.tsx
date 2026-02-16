@@ -78,26 +78,6 @@ export default function Home(): JSX.Element {
           </div>
         </section>
 
-        <section id="visual" className="py-4">
-          <div className={styles.fixedShell}>
-            <h2 className="h3 mb-3">InsightStream в рабочей среде</h2>
-            <div className={styles.photoGrid}>
-              <figure className={styles.photoCard}>
-                <img src={`${baseUrl}stock/workspace-docs.jpg`} alt="Рабочий стол с ноутбуком и документами" />
-              </figure>
-              <figure className={styles.photoCard}>
-                <img src={`${baseUrl}stock/workspace-glassdesk.jpg`} alt="Офисное рабочее место с задачами и заметками" />
-              </figure>
-              <figure className={styles.photoCard}>
-                <img src={`${baseUrl}stock/workspace-minimal.jpg`} alt="Минималистичное рабочее место с ноутбуком" />
-              </figure>
-            </div>
-            <p className="text-secondary mt-2 mb-0 small">
-              Фото: Pexels (Thirdman, Arina Krasnikova, Darina Belonogova)
-            </p>
-          </div>
-        </section>
-
         <section id="companies" className="py-4">
           <div className={styles.fixedShell}>
             <h2 className="h3 mb-3">Для каких компаний подходит</h2>
