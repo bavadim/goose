@@ -42,6 +42,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      OSX_CODESIGN_ROLE: ${{ secrets.OSX_CODESIGN_ROLE }}
     outputs:
         artifact-url: ${{ steps.upload-app-bundle.outputs.artifact-url }}
     steps:
@@ -224,14 +226,14 @@ jobs:
           done
 
       - name: Configure AWS credentials
-        if: ${{ inputs.signing && secrets.OSX_CODESIGN_ROLE != '' }}
+        if: ${{ inputs.signing && env.OSX_CODESIGN_ROLE != '' }}
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708  # v5.1.1
         with:
-          role-to-assume: "${{ secrets.OSX_CODESIGN_ROLE }}"
+          role-to-assume: "${{ env.OSX_CODESIGN_ROLE }}"
           aws-region: us-west-2
 
       - name: Codesigning and Notarization
-        if: ${{ inputs.signing && secrets.OSX_CODESIGN_ROLE != '' }}
+        if: ${{ inputs.signing && env.OSX_CODESIGN_ROLE != '' }}
         run: |
           set -e
 
@@ -298,7 +300,7 @@ jobs:
         working-directory: ui/desktop
 
       - name: Validate signed app bundle
-        if: ${{ inputs.signing && secrets.OSX_CODESIGN_ROLE != '' }}
+        if: ${{ inputs.signing && env.OSX_CODESIGN_ROLE != '' }}
         run: |
           set -euo pipefail
           CHECK_DIR="$(mktemp -d)"
