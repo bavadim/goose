@@ -1,0 +1,191 @@
+name: "Bundle Desktop Installers (MSI + DMG)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to checkout (branch, tag, or SHA). Defaults to current ref.'
+        required: false
+        type: string
+        default: ''
+      version:
+        description: 'Optional version to set before build (example: 1.24.1)'
+        required: false
+        type: string
+        default: ''
+      mac_arch:
+        description: 'macOS architecture to build'
+        required: false
+        type: choice
+        options:
+          - arm64
+          - x64
+        default: arm64
+      signing:
+        description: 'Enable signing stage (currently documented, not automated in this workflow)'
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        default: ''
+      version:
+        required: false
+        type: string
+        default: ''
+      mac_arch:
+        required: false
+        type: string
+        default: arm64
+      signing:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-windows-msi:
+    name: Build Windows MSI
+    runs-on: windows-latest
+    env:
+      GOOSE_BUNDLE_NAME: ${{ vars.GOOSE_BUNDLE_NAME }}
+      GOOSE_LOCALE: ${{ vars.GOOSE_LOCALE }}
+
+    steps:
+      - name: Set repository env
+        shell: bash
+        run: |
+          echo "GITHUB_OWNER=${{ github.repository_owner }}" >> "$GITHUB_ENV"
+          echo "GITHUB_REPO=${{ github.event.repository.name }}" >> "$GITHUB_ENV"
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || '' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24.10.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-msi
+
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Update versions
+        if: ${{ inputs.version != '' }}
+        shell: bash
+        run: |
+          sed -i.bak "s/^version = \".*\"/version = \"${{ inputs.version }}\"/" Cargo.toml
+          rm -f Cargo.toml.bak
+          cd ui/desktop
+          npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build goosed (Windows)
+        shell: bash
+        run: |
+          cargo build --release --target x86_64-pc-windows-msvc -p goose-server
+          mkdir -p ui/desktop/src/bin
+          cp target/x86_64-pc-windows-msvc/release/goosed.exe ui/desktop/src/bin/goosed.exe
+
+      - name: Install WiX Toolset
+        shell: powershell
+        run: |
+          choco install wixtoolset --no-progress -y
+
+      - name: Build MSI installer
+        shell: bash
+        run: |
+          cd ui/desktop
+          npm ci
+          npm run make -- --platform=win32 --arch=x64
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ISGuce-win32-x64-msi
+          path: ui/desktop/out/make/wix/x64/*.msi
+          if-no-files-found: error
+
+  build-macos-dmg:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    env:
+      GOOSE_BUNDLE_NAME: ${{ vars.GOOSE_BUNDLE_NAME }}
+      GOOSE_LOCALE: ${{ vars.GOOSE_LOCALE }}
+
+    steps:
+      - name: Set repository env
+        run: |
+          echo "GITHUB_OWNER=${{ github.repository_owner }}" >> "$GITHUB_ENV"
+          echo "GITHUB_REPO=${{ github.event.repository.name }}" >> "$GITHUB_ENV"
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || '' }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-dmg
+
+      - name: Setup Rust target
+        run: |
+          if [ "${{ inputs.mac_arch }}" = "x64" ]; then
+            rustup target add x86_64-apple-darwin
+            echo "RUST_TARGET=x86_64-apple-darwin" >> "$GITHUB_ENV"
+          else
+            rustup target add aarch64-apple-darwin
+            echo "RUST_TARGET=aarch64-apple-darwin" >> "$GITHUB_ENV"
+          fi
+
+      - name: Update versions
+        if: ${{ inputs.version != '' }}
+        run: |
+          sed -i.bak "s/^version = \".*\"/version = \"${{ inputs.version }}\"/" Cargo.toml
+          rm -f Cargo.toml.bak
+          cd ui/desktop
+          npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build goosed (macOS)
+        run: |
+          source ./bin/activate-hermit
+          cargo build --release -p goose-server --target "${RUST_TARGET}"
+          mkdir -p ui/desktop/src/bin
+          cp "target/${RUST_TARGET}/release/goosed" ui/desktop/src/bin/goosed
+
+      - name: Build DMG installer
+        run: |
+          source ./bin/activate-hermit
+          cd ui/desktop
+          npm ci
+          npm run make -- --platform=darwin --arch="${{ inputs.mac_arch }}"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ISGuce-darwin-${{ inputs.mac_arch }}-dmg
+          path: ui/desktop/out/make/**/*.dmg
+          if-no-files-found: error
+
+  signing-note:
+    name: Signing note
+    if: ${{ inputs.signing && vars.DESKTOP_SIGNING_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows-msi
+      - build-macos-dmg
+    steps:
+      - name: Signing status
+        run: |
+          echo "Signing was requested but is not automated in this workflow yet."
+          echo "Use PRD_desktop-cicd-msi-dmg-signing.md for CI/local signing runbooks and required secrets."

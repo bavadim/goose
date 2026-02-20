@@ -1,4 +1,5 @@
 import en from './en.json';
+import ru from './ru.json';
 
 type DictionaryValue = string | { [key: string]: DictionaryValue };
 type Dictionary = { [key: string]: DictionaryValue };
@@ -6,6 +7,7 @@ type Dictionary = { [key: string]: DictionaryValue };
 const DEFAULT_LOCALE = 'en';
 const dictionaries: Record<string, Dictionary> = {
   en: en as Dictionary,
+  ru: ru as Dictionary,
 };
 
 function normalizeLocale(raw: string): string {
