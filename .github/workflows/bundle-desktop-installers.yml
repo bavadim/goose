@@ -62,6 +62,7 @@ jobs:
     env:
       GOOSE_BUNDLE_NAME: ${{ vars.GOOSE_BUNDLE_NAME }}
       GOOSE_LOCALE: ${{ vars.GOOSE_LOCALE }}
+      CMAKE_MSVC_RUNTIME_LIBRARY: MultiThreadedDLL
 
     steps:
       - name: Set repository env
