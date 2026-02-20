@@ -273,7 +273,6 @@ You are an AI assistant called [YourName], created by [YourCompany].
    - Component text and labels
    - Feature visibility
 
-<<<<<<< HEAD
 5. **Configure localization for your distro**:
    - Add translation catalogs under `ui/desktop/src/i18n/` (for example `en.json`, `fr.json`, `de.json`)
    - Use translation keys via `t('namespace.key', 'Fallback text')` in UI components
