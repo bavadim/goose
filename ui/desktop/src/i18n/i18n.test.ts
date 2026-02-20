@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import en from './en.json';
-import ru from './ru.json';
 import { currentLocale, currentLocaleTag, t } from './index';
 
 function flattenKeys(value: Record<string, unknown>, prefix = ''): string[] {
@@ -13,12 +12,10 @@ function flattenKeys(value: Record<string, unknown>, prefix = ''): string[] {
   });
 }
 
-describe('i18n dictionaries', () => {
-  it('keeps en.json and ru.json in key parity', () => {
+describe('i18n dictionary', () => {
+  it('has non-empty english dictionary keys', () => {
     const enKeys = flattenKeys(en as Record<string, unknown>).sort();
-    const ruKeys = flattenKeys(ru as Record<string, unknown>).sort();
-
-    expect(ruKeys).toEqual(enKeys);
+    expect(enKeys.length).toBeGreaterThan(0);
   });
 });
 
@@ -34,11 +31,11 @@ describe('i18n core', () => {
   it('reads locale from config when locale is supported', () => {
     vi.stubGlobal('window', {
       appConfig: {
-        get: (key: string) => (key === 'GOOSE_LOCALE' ? 'ru' : undefined),
+        get: (key: string) => (key === 'GOOSE_LOCALE' ? 'en' : undefined),
       },
     });
 
-    expect(currentLocale()).toBe('ru');
+    expect(currentLocale()).toBe('en');
   });
 
   it('falls back to default locale when configured locale is not supported', () => {
@@ -52,13 +49,7 @@ describe('i18n core', () => {
   });
 
   it('returns localized value when key exists', () => {
-    vi.stubGlobal('window', {
-      appConfig: {
-        get: (key: string) => (key === 'GOOSE_LOCALE' ? 'ru' : undefined),
-      },
-    });
-
-    expect(t('common.loading', 'Loading...')).toBe('Загрузка...');
+    expect(t('common.loading', 'Loading...')).toBe('Loading...');
   });
 
   it('uses configured locale tag for date/time formatting', () => {

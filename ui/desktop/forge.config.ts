@@ -17,7 +17,7 @@ let cfg = {
   // Protocol registration
   protocols: [
     {
-      name: 'GooseProtocol',
+      name: 'ISGuceProtocol',
       schemes: ['goose'],
     },
   ],
@@ -33,8 +33,10 @@ let cfg = {
       },
     ],
     // Usage descriptions for macOS TCC (Transparency, Consent, and Control)
-    NSCalendarsUsageDescription: 'Goose needs access to your calendars to help manage and query calendar events.',
-    NSRemindersUsageDescription: 'Goose needs access to your reminders to help manage and query reminders.',
+    NSCalendarsUsageDescription:
+      'ISGuce needs access to your calendars to help manage and query calendar events.',
+    NSRemindersUsageDescription:
+      'ISGuce needs access to your reminders to help manage and query reminders.',
   },
 };
 
@@ -68,10 +70,10 @@ module.exports = {
     {
       name: '@electron-forge/maker-deb',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
-        maintainer: 'Block, Inc.',
-        homepage: 'https://block.github.io/goose/',
+        name: 'ISGuce',
+        bin: 'ISGuce',
+        maintainer: 'Insight Stream',
+        homepage: 'https://github.com/redsquad-tech/is-goose',
         categories: ['Development'],
         desktopTemplate: './forge.deb.desktop',
         options: {
@@ -83,10 +85,10 @@ module.exports = {
     {
       name: '@electron-forge/maker-rpm',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
-        maintainer: 'Block, Inc.',
-        homepage: 'https://block.github.io/goose/',
+        name: 'ISGuce',
+        bin: 'ISGuce',
+        maintainer: 'Insight Stream',
+        homepage: 'https://github.com/redsquad-tech/is-goose',
         categories: ['Development'],
         desktopTemplate: './forge.rpm.desktop',
         options: {
@@ -100,16 +102,16 @@ module.exports = {
       name: '@electron-forge/maker-flatpak',
       config: {
         options: {
-          id: 'io.github.block.Goose',
+          id: 'io.github.redsquadtech.ISGuce',
           categories: ['Development'],
           icon: {
             'scalable': 'src/images/icon.svg',
             '512x512': 'src/images/icon-512.png',
           },
-          homepage: 'https://block.github.io/goose/',
+          homepage: 'https://github.com/redsquad-tech/is-goose',
           runtimeVersion: '25.08',
           baseVersion: '25.08',
-          bin: 'Goose',
+          bin: 'ISGuce',
           modules: [
             {
               name: 'libbz2-shim',
