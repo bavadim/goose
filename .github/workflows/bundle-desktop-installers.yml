@@ -291,7 +291,46 @@ jobs:
           codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-          xcrun notarytool submit "$DMG_PATH" --key "$API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait
+          SUBMIT_JSON="$RUNNER_TEMP/notary-submit.json"
+          WAIT_JSON="$RUNNER_TEMP/notary-wait.json"
+          LOG_JSON="$RUNNER_TEMP/notary-log.json"
+
+          xcrun notarytool submit "$DMG_PATH" \
+            --key "$API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --output-format json > "$SUBMIT_JSON"
+
+          SUBMISSION_ID="$(jq -r '.id // empty' "$SUBMIT_JSON")"
+          if [ -z "$SUBMISSION_ID" ]; then
+            echo "Notary submission id is missing"
+            cat "$SUBMIT_JSON" || true
+            exit 1
+          fi
+          echo "Notary submission id: $SUBMISSION_ID"
+
+          set +e
+          xcrun notarytool wait "$SUBMISSION_ID" \
+            --key "$API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --output-format json > "$WAIT_JSON"
+          WAIT_EXIT=$?
+          set -e
+
+          STATUS="$(jq -r '.status // empty' "$WAIT_JSON")"
+          if [ "$WAIT_EXIT" -ne 0 ] || [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization failed. status=${STATUS:-unknown}, exit=${WAIT_EXIT}"
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --key "$API_KEY_PATH" \
+              --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER_ID" \
+              --output-format json > "$LOG_JSON" || true
+            echo "Notary detailed log:"
+            cat "$LOG_JSON" || true
+            exit 1
+          fi
+
           xcrun stapler staple "$DMG_PATH"
           spctl -a -t open --context context:primary-signature -v "$DMG_PATH"
 
