@@ -305,7 +305,7 @@ jobs:
           set -euo pipefail
           cd ui/desktop
 
-          if [ -z "${APPLE_API_KEY_ID:-}" ] || [ -z "${APPLE_API_ISSUER_ID:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${APPLE_DEVELOPER_ID_APP_CERT_P12_BASE64:-}" ] || [ -z "${APPLE_DEVELOPER_ID_APP_CERT_PASSWORD:-}" ] || [ -z "${APPLE_API_PRIVATE_KEY_P8_BASE64:-}" ]; then
+          if [ -z "${APPLE_API_KEY_ID:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${APPLE_DEVELOPER_ID_APP_CERT_P12_BASE64:-}" ] || [ -z "${APPLE_DEVELOPER_ID_APP_CERT_PASSWORD:-}" ] || [ -z "${APPLE_API_PRIVATE_KEY_P8_BASE64:-}" ]; then
             echo "Missing required Apple signing/notarization env values"
             exit 1
           fi
@@ -360,40 +360,59 @@ jobs:
           WAIT_JSON="$RUNNER_TEMP/notary-wait.json"
           LOG_JSON="$RUNNER_TEMP/notary-log.json"
 
-          xcrun notarytool submit "$DMG_PATH" \
-            --key "$API_KEY_PATH" \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" \
-            --output-format json > "$SUBMIT_JSON"
+          run_notary_cycle() {
+            local mode="$1"
+            local submit_exit
+            local wait_exit
+            local status
 
-          SUBMISSION_ID="$(jq -r '.id // empty' "$SUBMIT_JSON")"
-          if [ -z "$SUBMISSION_ID" ]; then
-            echo "Notary submission id is missing"
-            cat "$SUBMIT_JSON" || true
-            exit 1
-          fi
-          echo "Notary submission id: $SUBMISSION_ID"
+            local -a auth_args=(--key "$API_KEY_PATH" --key-id "$APPLE_API_KEY_ID")
+            if [ "$mode" = "with_issuer" ]; then
+              auth_args+=(--issuer "$APPLE_API_ISSUER_ID")
+            fi
 
-          set +e
-          xcrun notarytool wait "$SUBMISSION_ID" \
-            --key "$API_KEY_PATH" \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" \
-            --output-format json > "$WAIT_JSON"
-          WAIT_EXIT=$?
-          set -e
+            set +e
+            xcrun notarytool submit "$DMG_PATH" "${auth_args[@]}" --output-format json > "$SUBMIT_JSON"
+            submit_exit=$?
+            set -e
+            if [ "$submit_exit" -ne 0 ]; then
+              echo "Notary submit failed (mode=$mode, exit=$submit_exit)"
+              cat "$SUBMIT_JSON" || true
+              return 1
+            fi
 
-          STATUS="$(jq -r '.status // empty' "$WAIT_JSON")"
-          if [ "$WAIT_EXIT" -ne 0 ] || [ "$STATUS" != "Accepted" ]; then
-            echo "Notarization failed. status=${STATUS:-unknown}, exit=${WAIT_EXIT}"
-            xcrun notarytool log "$SUBMISSION_ID" \
-              --key "$API_KEY_PATH" \
-              --key-id "$APPLE_API_KEY_ID" \
-              --issuer "$APPLE_API_ISSUER_ID" \
-              --output-format json > "$LOG_JSON" || true
-            echo "Notary detailed log:"
-            cat "$LOG_JSON" || true
-            exit 1
+            SUBMISSION_ID="$(jq -r '.id // empty' "$SUBMIT_JSON")"
+            if [ -z "$SUBMISSION_ID" ]; then
+              echo "Notary submission id is missing (mode=$mode)"
+              cat "$SUBMIT_JSON" || true
+              return 1
+            fi
+            echo "Notary submission id: $SUBMISSION_ID (mode=$mode)"
+
+            set +e
+            xcrun notarytool wait "$SUBMISSION_ID" "${auth_args[@]}" --output-format json > "$WAIT_JSON"
+            wait_exit=$?
+            set -e
+
+            status="$(jq -r '.status // empty' "$WAIT_JSON")"
+            if [ "$wait_exit" -ne 0 ] || [ "$status" != "Accepted" ]; then
+              echo "Notarization failed (mode=$mode). status=${status:-unknown}, exit=$wait_exit"
+              xcrun notarytool log "$SUBMISSION_ID" "${auth_args[@]}" --output-format json > "$LOG_JSON" || true
+              echo "Notary detailed log:"
+              cat "$LOG_JSON" || true
+              return 1
+            fi
+
+            return 0
+          }
+
+          if [ -n "${APPLE_API_ISSUER_ID:-}" ]; then
+            if ! run_notary_cycle "with_issuer"; then
+              echo "Retrying notarization without issuer (individual API key compatibility mode)..."
+              run_notary_cycle "without_issuer"
+            fi
+          else
+            run_notary_cycle "without_issuer"
           fi
 
           xcrun stapler staple "$DMG_PATH"
