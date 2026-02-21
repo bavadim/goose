@@ -281,15 +281,25 @@ jobs:
           fi
 
           APP_PATH="$(find out -type d -name '*.app' | head -n1)"
-          DMG_PATH="$(find out/make -type f -name '*.dmg' | head -n1)"
+          ORIGINAL_DMG_PATH="$(find out/make -type f -name '*.dmg' | head -n1)"
 
-          if [ -z "$APP_PATH" ] || [ -z "$DMG_PATH" ]; then
-            echo "Could not find app or dmg artifact for signing"
+          if [ -z "$APP_PATH" ]; then
+            echo "Could not find app artifact for signing"
             exit 1
           fi
 
+          if [ -n "$ORIGINAL_DMG_PATH" ]; then
+            echo "Original unsigned DMG: $ORIGINAL_DMG_PATH"
+          fi
+
+          xattr -cr "$APP_PATH"
           codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl -a -t exec -v "$APP_PATH"
+
+          APP_NAME="$(basename "$APP_PATH" .app)"
+          DMG_PATH="$RUNNER_TEMP/${APP_NAME}-${MAC_ARCH}-signed.dmg"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
 
           SUBMIT_JSON="$RUNNER_TEMP/notary-submit.json"
           WAIT_JSON="$RUNNER_TEMP/notary-wait.json"
@@ -333,6 +343,9 @@ jobs:
 
           xcrun stapler staple "$DMG_PATH"
           spctl -a -t open --context context:primary-signature -v "$DMG_PATH"
+
+          mkdir -p out/make/signed
+          cp -f "$DMG_PATH" "out/make/signed/$(basename "$DMG_PATH")"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
