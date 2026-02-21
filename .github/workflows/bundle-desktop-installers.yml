@@ -139,6 +139,10 @@ jobs:
 
       - name: Build goosed (Windows)
         shell: bash
+        env:
+          LLAMA_STATIC_CRT: "OFF"
+          CMAKE_MSVC_RUNTIME_LIBRARY: MultiThreadedDLL
+          CMAKE_ARGS: -DLLAMA_STATIC_CRT=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
         run: |
           set -euo pipefail
           DIAG_DIR="$RUNNER_TEMP/windows-link-diagnostics"
@@ -148,7 +152,11 @@ jobs:
           build_exit=${PIPESTATUS[0]}
           set -e
           if [ "$build_exit" -ne 0 ]; then
-            rg -n "LNK2038|LNK2005|LNK1169|RuntimeLibrary|error: linking with link\\.exe failed" "$DIAG_DIR/cargo-build.log" > "$DIAG_DIR/linker-signatures.txt" || true
+            if command -v rg >/dev/null 2>&1; then
+              rg -n "LNK2038|LNK2005|LNK1169|RuntimeLibrary|error: linking with link\\.exe failed" "$DIAG_DIR/cargo-build.log" > "$DIAG_DIR/linker-signatures.txt" || true
+            else
+              grep -En "LNK2038|LNK2005|LNK1169|RuntimeLibrary|error: linking with link\\.exe failed" "$DIAG_DIR/cargo-build.log" > "$DIAG_DIR/linker-signatures.txt" || true
+            fi
             exit 1
           fi
 
