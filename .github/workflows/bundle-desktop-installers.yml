@@ -62,7 +62,8 @@ jobs:
     env:
       GOOSE_BUNDLE_NAME: ${{ vars.GOOSE_BUNDLE_NAME }}
       GOOSE_LOCALE: ${{ vars.GOOSE_LOCALE }}
-      CMAKE_MSVC_RUNTIME_LIBRARY: MultiThreadedDLL
+      # tokenizers/esaxx-rs forces static CRT on Windows; align llama-cpp-sys with it.
+      LLAMA_STATIC_CRT: "1"
 
     steps:
       - name: Set repository env
@@ -90,6 +91,12 @@ jobs:
         shell: bash
         run: |
           rustup target add x86_64-pc-windows-msvc
+
+      - name: Print Windows runtime env
+        shell: bash
+        run: |
+          echo "LLAMA_STATIC_CRT=${LLAMA_STATIC_CRT:-<unset>}"
+          echo "CMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY:-<unset>}"
 
       - name: Update versions
         if: ${{ inputs.version != '' }}
