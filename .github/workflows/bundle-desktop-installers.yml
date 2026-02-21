@@ -346,7 +346,20 @@ jobs:
           fi
 
           xattr -cr "$APP_PATH"
-          codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" "$APP_PATH"
+
+          # Sign nested Mach-O binaries first (Electron libs, helper binaries, bundled goosed, etc.).
+          while IFS= read -r -d '' file; do
+            if file "$file" | grep -q "Mach-O"; then
+              codesign --force --options runtime --timestamp --sign "$IDENTITY" "$file"
+            fi
+          done < <(find "$APP_PATH/Contents" -type f -print0)
+
+          # Then sign nested bundles/frameworks, and finally the app bundle.
+          while IFS= read -r -d '' bundle; do
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$bundle"
+          done < <(find "$APP_PATH/Contents" -type d \( -name "*.app" -o -name "*.framework" -o -name "*.xpc" \) -print0 | sort -z -r)
+
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           # Before notarization this commonly reports "Unnotarized Developer ID".
           # Keep it informational so we fail only on signing/notarization errors.
@@ -361,33 +374,29 @@ jobs:
           LOG_JSON="$RUNNER_TEMP/notary-log.json"
 
           run_notary_cycle() {
-            local mode="$1"
             local submit_exit
             local wait_exit
             local status
 
-            local -a auth_args=(--key "$API_KEY_PATH" --key-id "$APPLE_API_KEY_ID")
-            if [ "$mode" = "with_issuer" ]; then
-              auth_args+=(--issuer "$APPLE_API_ISSUER_ID")
-            fi
+            local -a auth_args=(--key "$API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
 
             set +e
             xcrun notarytool submit "$DMG_PATH" "${auth_args[@]}" --output-format json > "$SUBMIT_JSON"
             submit_exit=$?
             set -e
             if [ "$submit_exit" -ne 0 ]; then
-              echo "Notary submit failed (mode=$mode, exit=$submit_exit)"
+              echo "Notary submit failed (exit=$submit_exit)"
               cat "$SUBMIT_JSON" || true
               return 1
             fi
 
             SUBMISSION_ID="$(jq -r '.id // empty' "$SUBMIT_JSON")"
             if [ -z "$SUBMISSION_ID" ]; then
-              echo "Notary submission id is missing (mode=$mode)"
+              echo "Notary submission id is missing"
               cat "$SUBMIT_JSON" || true
               return 1
             fi
-            echo "Notary submission id: $SUBMISSION_ID (mode=$mode)"
+            echo "Notary submission id: $SUBMISSION_ID"
 
             set +e
             xcrun notarytool wait "$SUBMISSION_ID" "${auth_args[@]}" --output-format json > "$WAIT_JSON"
@@ -396,7 +405,7 @@ jobs:
 
             status="$(jq -r '.status // empty' "$WAIT_JSON")"
             if [ "$wait_exit" -ne 0 ] || [ "$status" != "Accepted" ]; then
-              echo "Notarization failed (mode=$mode). status=${status:-unknown}, exit=$wait_exit"
+              echo "Notarization failed. status=${status:-unknown}, exit=$wait_exit"
               xcrun notarytool log "$SUBMISSION_ID" "${auth_args[@]}" --output-format json > "$LOG_JSON" || true
               echo "Notary detailed log:"
               cat "$LOG_JSON" || true
@@ -406,14 +415,7 @@ jobs:
             return 0
           }
 
-          if [ -n "${APPLE_API_ISSUER_ID:-}" ]; then
-            if ! run_notary_cycle "with_issuer"; then
-              echo "Retrying notarization without issuer (individual API key compatibility mode)..."
-              run_notary_cycle "without_issuer"
-            fi
-          else
-            run_notary_cycle "without_issuer"
-          fi
+          run_notary_cycle
 
           xcrun stapler staple "$DMG_PATH"
           spctl -a -t open --context context:primary-signature -v "$DMG_PATH"
