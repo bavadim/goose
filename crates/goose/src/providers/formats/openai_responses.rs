@@ -31,7 +31,7 @@ pub enum ResponseOutputItem {
     Reasoning {
         id: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        summary: Option<Vec<String>>,
+        summary: Option<Vec<ReasoningSummaryPart>>,
     },
     Message {
         id: String,
@@ -248,7 +248,7 @@ pub struct ResponseMetadata {
 pub enum ResponseOutputItemInfo {
     Reasoning {
         id: String,
-        summary: Vec<String>,
+        summary: Vec<ReasoningSummaryPart>,
     },
     Message {
         id: String,
@@ -263,6 +263,19 @@ pub enum ResponseOutputItemInfo {
         name: String,
         arguments: String,
     },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ReasoningSummaryPart {
+    #[serde(rename = "type")]
+    pub kind: ReasoningSummaryPartType,
+    pub text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ReasoningSummaryPartType {
+    SummaryText,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -923,5 +936,49 @@ mod tests {
             .contains("InternalError.Algo.InvalidParameter"));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_output_item_done_reasoning_summary_accepts_summary_text_objects() -> anyhow::Result<()>
+    {
+        let data = r#"{"sequence_number":26,"type":"response.output_item.done","output_index":0,"item":{"type":"reasoning","id":"msg_5021bb2e-6ff7-4261-bdf9-01cf68505c76","summary":[{"type":"summary_text","text":"Use tool"}]}}"#;
+        let event = parse_responses_stream_event(data)?.expect("event should parse");
+
+        match event {
+            ResponsesStreamEvent::OutputItemDone { item, .. } => match item {
+                ResponseOutputItemInfo::Reasoning { summary, .. } => {
+                    assert_eq!(summary.len(), 1);
+                    assert_eq!(summary[0].text, "Use tool");
+                    assert!(matches!(
+                        summary[0].kind,
+                        ReasoningSummaryPartType::SummaryText
+                    ));
+                }
+                _ => panic!("expected reasoning output item"),
+            },
+            _ => panic!("expected output item done event"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_output_item_done_reasoning_summary_rejects_legacy_string_array() {
+        let data = r#"{"sequence_number":26,"type":"response.output_item.done","output_index":0,"item":{"type":"reasoning","id":"msg_5021bb2e-6ff7-4261-bdf9-01cf68505c76","summary":["legacy summary"]}}"#;
+        let err =
+            parse_responses_stream_event(data).expect_err("legacy string summary must be rejected");
+        assert!(err
+            .to_string()
+            .contains("Failed to parse Responses stream event"));
+    }
+
+    #[test]
+    fn test_output_item_done_reasoning_summary_rejects_missing_text() {
+        let data = r#"{"sequence_number":26,"type":"response.output_item.done","output_index":0,"item":{"type":"reasoning","id":"msg_5021bb2e-6ff7-4261-bdf9-01cf68505c76","summary":[{"type":"summary_text"}]}}"#;
+        let err =
+            parse_responses_stream_event(data).expect_err("summary_text without text must fail");
+        assert!(err
+            .to_string()
+            .contains("Failed to parse Responses stream event"));
     }
 }
