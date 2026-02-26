@@ -1,7 +1,6 @@
 import { AppEvents } from '../../constants/events';
 import React, { useEffect, useState } from 'react';
 import {
-  AppWindow,
   ChefHat,
   ChevronRight,
   Clock,
@@ -63,13 +62,6 @@ const menuItems: NavigationEntry[] = [
     label: 'Recipes',
     icon: FileText,
     tooltip: 'Browse your saved recipes',
-  },
-  {
-    type: 'item',
-    path: '/apps',
-    label: 'Apps',
-    icon: AppWindow,
-    tooltip: 'MCP and custom apps',
   },
   {
     type: 'item',
@@ -230,9 +222,6 @@ const AppSidebar: React.FC<SidebarProps> = ({ currentPath }) => {
   const chatContext = useChatContext();
   const configContext = useConfig();
   const setView = useNavigation();
-
-  const appsExtensionEnabled = !!configContext.extensionsList?.find((ext) => ext.name === 'apps')
-    ?.enabled;
   const [searchParams] = useSearchParams();
   const [recentSessions, setRecentSessions] = useState<Session[]>([]);
   const [isChatExpanded, setIsChatExpanded] = useState(true);
@@ -500,13 +489,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ currentPath }) => {
     );
   };
 
-  const visibleMenuItems = menuItems.filter((entry) => {
-    // Filter out Apps if extension is not enabled
-    if (entry.type === 'item' && entry.path === '/apps') {
-      return appsExtensionEnabled;
-    }
-    return true;
-  });
+  const visibleMenuItems = menuItems;
 
   return (
     <>
