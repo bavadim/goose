@@ -831,4 +831,59 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_responses_stream_with_sse_id_lines_via_sse_stream() -> anyhow::Result<()> {
+        use futures::TryStreamExt;
+        use reqwest::bytes::Bytes;
+
+        let sse_wire = concat!(
+            "id: 1\n",
+            "event: message\n",
+            "data: {\"type\":\"response.created\",\"sequence_number\":1,\"response\":{\"id\":\"resp_1\",\"object\":\"response\",\"created_at\":1737368310,\"status\":\"in_progress\",\"model\":\"gpt-5.2-pro\",\"output\":[]}}\n",
+            "\n",
+            "id: 2\n",
+            "event: message\n",
+            "data: {\"type\":\"response.output_text.delta\",\"sequence_number\":2,\"item_id\":\"msg_1\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\"}\n",
+            "\n",
+            "id: 3\n",
+            "event: message\n",
+            "data: [DONE]\n",
+            "\n"
+        );
+
+        let byte_stream = futures::stream::iter(
+            sse_wire
+                .as_bytes()
+                .chunks(17)
+                .map(|chunk| Ok::<Bytes, std::io::Error>(Bytes::copy_from_slice(chunk))),
+        );
+
+        let sse_stream = sse_stream::SseStream::from_byte_stream(byte_stream)
+            .map_ok(|event| {
+                event
+                    .data
+                    .map(|data| format!("data: {}", data))
+                    .unwrap_or_default()
+            })
+            .map_err(anyhow::Error::from);
+
+        let messages = responses_api_to_streaming_message(sse_stream);
+        futures::pin_mut!(messages);
+
+        let mut text_parts = Vec::new();
+        while let Some(item) = messages.next().await {
+            let (message, _) = item?;
+            if let Some(msg) = message {
+                for content in msg.content {
+                    if let MessageContent::Text(text) = content {
+                        text_parts.push(text.text.clone());
+                    }
+                }
+            }
+        }
+
+        assert_eq!(text_parts.concat(), "Hello");
+        Ok(())
+    }
 }

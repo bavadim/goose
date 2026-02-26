@@ -23,8 +23,6 @@ use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::io;
 use tokio::pin;
-use tokio_util::codec::{FramedRead, LinesCodec};
-use tokio_util::io::StreamReader;
 
 use crate::model::ModelConfig;
 use crate::providers::base::MessageStream;
@@ -406,12 +404,17 @@ impl Provider for OpenAiProvider {
 
             if self.supports_streaming {
                 let stream = response.bytes_stream().map_err(io::Error::other);
+                let sse_stream = sse_stream::SseStream::from_byte_stream(stream)
+                    .map_ok(|event| {
+                        event
+                            .data
+                            .map(|data| format!("data: {}", data))
+                            .unwrap_or_default()
+                    })
+                    .map_err(anyhow::Error::from);
 
                 Ok(Box::pin(try_stream! {
-                    let stream_reader = StreamReader::new(stream);
-                    let framed = FramedRead::new(stream_reader, LinesCodec::new()).map_err(anyhow::Error::from);
-
-                    let message_stream = responses_api_to_streaming_message(framed);
+                    let message_stream = responses_api_to_streaming_message(sse_stream);
                     pin!(message_stream);
                     while let Some(message) = message_stream.next().await {
                         let (message, usage) = message.map_err(|e| ProviderError::RequestFailed(format!("Stream decode error: {}", e)))?;

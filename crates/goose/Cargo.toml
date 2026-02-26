@@ -126,6 +126,7 @@ which = { workspace = true }
 pctx_code_mode = "^0.2.3"
 unbinder = "0.1.7"
 encoding_rs = "0.8.35"
+sse-stream = "0.2.1"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 tokenizers = "0.21.0"
