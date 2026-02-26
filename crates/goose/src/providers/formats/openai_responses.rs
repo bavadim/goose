@@ -1,6 +1,7 @@
 use crate::conversation::message::{Message, MessageContent};
 use crate::model::ModelConfig;
 use crate::providers::base::{ProviderUsage, Usage};
+use crate::providers::formats::tool_schema::normalize_responses_tool_schemas;
 use anyhow::{anyhow, Error};
 use async_stream::try_stream;
 use chrono;
@@ -430,6 +431,7 @@ pub fn create_responses_request(
     system: &str,
     messages: &[Message],
     tools: &[Tool],
+    normalize_tools_for_compat: bool,
 ) -> anyhow::Result<Value, Error> {
     let mut input_items = Vec::new();
 
@@ -454,7 +456,7 @@ pub fn create_responses_request(
     });
 
     if !tools.is_empty() {
-        let tools_spec: Vec<Value> = tools
+        let mut tools_spec: Vec<Value> = tools
             .iter()
             .map(|tool| {
                 json!({
@@ -465,6 +467,9 @@ pub fn create_responses_request(
                 })
             })
             .collect();
+        if normalize_tools_for_compat {
+            normalize_responses_tool_schemas(&mut tools_spec);
+        }
 
         payload
             .as_object_mut()

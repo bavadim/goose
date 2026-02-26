@@ -20,6 +20,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use super::tool_schema::validate_tool_schemas;
+
 type ToolCallData = HashMap<
     i32,
     (
@@ -480,52 +482,6 @@ fn extract_usage_with_output_tokens(chunk: &StreamingChunk) -> Option<ProviderUs
             })
         })
         .filter(|u| u.usage.output_tokens.is_some())
-}
-
-/// Validates and fixes tool schemas to ensure they have proper parameter structure.
-/// If parameters exist, ensures they have properties and required fields, or removes parameters entirely.
-pub fn validate_tool_schemas(tools: &mut [Value]) {
-    for tool in tools.iter_mut() {
-        if let Some(function) = tool.get_mut("function") {
-            if let Some(parameters) = function.get_mut("parameters") {
-                if parameters.is_object() {
-                    ensure_valid_json_schema(parameters);
-                }
-            }
-        }
-    }
-}
-
-/// Ensures that the given JSON value follows the expected JSON Schema structure.
-fn ensure_valid_json_schema(schema: &mut Value) {
-    if let Some(params_obj) = schema.as_object_mut() {
-        // Check if this is meant to be an object type schema
-        let is_object_type = params_obj
-            .get("type")
-            .and_then(|t| t.as_str())
-            .is_none_or(|t| t == "object"); // Default to true if no type is specified
-
-        // Only apply full schema validation to object types
-        if is_object_type {
-            // Ensure required fields exist with default values
-            params_obj.entry("properties").or_insert_with(|| json!({}));
-            params_obj.entry("required").or_insert_with(|| json!([]));
-            params_obj.entry("type").or_insert_with(|| json!("object"));
-
-            // Recursively validate properties if it exists
-            if let Some(properties) = params_obj.get_mut("properties") {
-                if let Some(properties_obj) = properties.as_object_mut() {
-                    for (_key, prop) in properties_obj.iter_mut() {
-                        if prop.is_object()
-                            && prop.get("type").and_then(|t| t.as_str()) == Some("object")
-                        {
-                            ensure_valid_json_schema(prop);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 fn strip_data_prefix(line: &str) -> Option<&str> {

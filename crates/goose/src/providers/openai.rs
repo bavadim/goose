@@ -62,6 +62,7 @@ pub struct OpenAiProvider {
     model: ModelConfig,
     custom_headers: Option<HashMap<String, String>>,
     supports_streaming: bool,
+    normalize_responses_tool_schemas: bool,
     name: String,
 }
 
@@ -73,6 +74,7 @@ impl OpenAiProvider {
         let host: String = config
             .get_param("OPENAI_HOST")
             .unwrap_or_else(|_| "https://api.openai.com".to_string());
+        let normalize_responses_tool_schemas = !Self::is_official_openai_host(&host);
 
         let secrets = config
             .get_secrets("OPENAI_API_KEY", &["OPENAI_CUSTOM_HEADERS"])
@@ -123,6 +125,7 @@ impl OpenAiProvider {
             model,
             custom_headers,
             supports_streaming: true,
+            normalize_responses_tool_schemas,
             name: OPEN_AI_PROVIDER_NAME.to_string(),
         })
     }
@@ -137,6 +140,7 @@ impl OpenAiProvider {
             model,
             custom_headers: None,
             supports_streaming: true,
+            normalize_responses_tool_schemas: false,
             name: OPEN_AI_PROVIDER_NAME.to_string(),
         }
     }
@@ -166,6 +170,7 @@ impl OpenAiProvider {
         } else {
             format!("{}://{}", url.scheme(), url.host_str().unwrap_or(""))
         };
+        let normalize_responses_tool_schemas = !Self::is_official_openai_host(&host);
         let base_path = url.path().trim_start_matches('/').to_string();
         let base_path = if base_path.is_empty() || base_path == "v1" || base_path == "v1/" {
             "v1/chat/completions".to_string()
@@ -201,8 +206,16 @@ impl OpenAiProvider {
             model,
             custom_headers: config.headers,
             supports_streaming: config.supports_streaming.unwrap_or(true),
+            normalize_responses_tool_schemas,
             name: config.name.clone(),
         })
+    }
+
+    fn is_official_openai_host(host: &str) -> bool {
+        url::Url::parse(host)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_ascii_lowercase))
+            .is_some_and(|h| h == "api.openai.com")
     }
 
     fn normalize_base_path(base_path: &str) -> String {
@@ -375,7 +388,13 @@ impl Provider for OpenAiProvider {
         tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
         if Self::should_use_responses_api(&model_config.model_name, &self.base_path) {
-            let mut payload = create_responses_request(model_config, system, messages, tools)?;
+            let mut payload = create_responses_request(
+                model_config,
+                system,
+                messages,
+                tools,
+                self.normalize_responses_tool_schemas,
+            )?;
             payload["stream"] = serde_json::Value::Bool(self.supports_streaming);
 
             let mut log = RequestLog::start(model_config, &payload)?;
@@ -643,5 +662,15 @@ mod tests {
     fn unknown_absolute_path_falls_back_to_absolute_models_path() {
         let models_path = OpenAiProvider::map_base_path("/custom/path", "models", "v1/models");
         assert_eq!(models_path, "/v1/models");
+    }
+
+    #[test]
+    fn detects_official_openai_host() {
+        assert!(OpenAiProvider::is_official_openai_host(
+            "https://api.openai.com"
+        ));
+        assert!(!OpenAiProvider::is_official_openai_host(
+            "https://dashscope-intl.aliyuncs.com"
+        ));
     }
 }
