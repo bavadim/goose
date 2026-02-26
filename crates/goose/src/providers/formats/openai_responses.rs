@@ -149,7 +149,13 @@ pub enum ResponsesStreamEvent {
         response: ResponseMetadata,
     },
     #[serde(rename = "response.failed")]
-    ResponseFailed { sequence_number: i32, error: Value },
+    ResponseFailed {
+        sequence_number: i32,
+        #[serde(default)]
+        error: Option<Value>,
+        #[serde(default)]
+        response: Option<Value>,
+    },
     #[serde(rename = "response.function_call_arguments.delta")]
     FunctionCallArgumentsDelta {
         sequence_number: i32,
@@ -730,8 +736,16 @@ where
                     // Arguments are complete, will be in the OutputItemDone event
                 }
 
-                ResponsesStreamEvent::ResponseFailed { error, .. } => {
-                    Err(anyhow!("Responses API failed: {:?}", error))?;
+                ResponsesStreamEvent::ResponseFailed {
+                    error, response, ..
+                } => {
+                    let err = error.or_else(|| {
+                        response
+                            .as_ref()
+                            .and_then(|r| r.get("error"))
+                            .cloned()
+                    });
+                    Err(anyhow!("Responses API failed: {:?}", err.unwrap_or(Value::Null)))?;
                 }
 
                 ResponsesStreamEvent::Error { error } => {
@@ -884,6 +898,30 @@ mod tests {
         }
 
         assert_eq!(text_parts.concat(), "Hello");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_response_failed_accepts_nested_response_error() -> anyhow::Result<()> {
+        let lines = vec![
+            r#"data: {"sequence_number":2,"type":"response.failed","response":{"output":[],"parallel_tool_calls":false,"created_at":1771836107,"tool_choice":"auto","model":"","id":"71458cde-728b-9f0e-845b-be42269e5fc6","error":{"message":"<400> InternalError.Algo.InvalidParameter: invalid schema","code":"server_error"},"tools":[],"object":"response","status":"failed"}}"#.to_string(),
+            "data: [DONE]".to_string(),
+        ];
+
+        let response_stream = tokio_stream::iter(lines.into_iter().map(Ok));
+        let messages = responses_api_to_streaming_message(response_stream);
+        futures::pin_mut!(messages);
+
+        let first = messages
+            .next()
+            .await
+            .expect("stream should emit an error item");
+        assert!(first.is_err());
+        assert!(first
+            .expect_err("expected error")
+            .to_string()
+            .contains("InternalError.Algo.InvalidParameter"));
+
         Ok(())
     }
 }
