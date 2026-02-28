@@ -3,7 +3,7 @@ import path from "node:path";
 
 export type OpenAPISpec = Record<string, unknown>;
 
-const specPath = path.resolve("requirements/GOOSE_SERVER_OPENAPI.json");
+const specPath = path.resolve("docs/requirements/GOOSE_SERVER_OPENAPI.json");
 
 export const loadSpec = (): OpenAPISpec => {
   const raw = fs.readFileSync(specPath, "utf8");
