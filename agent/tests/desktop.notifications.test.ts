@@ -86,7 +86,8 @@ describe("MUST desktop notifications requirements", () => {
     service.notify(event);
 
     expect(shown).toHaveLength(1);
-    expect(logger.warn).toHaveBeenCalledWith("notification_suppressed", {
+    expect(logger.warn).toHaveBeenCalledWith({
+      event: "notification_suppressed",
       code: "runtime.backend.start_failed",
       dedupWindowMs: 30_000,
     });
@@ -113,7 +114,8 @@ describe("MUST desktop notifications requirements", () => {
     service.notify({ code: "runtime.preflight.failed" });
 
     expect(shown).toHaveLength(0);
-    expect(logger.warn).toHaveBeenCalledWith("notification_unsupported", {
+    expect(logger.warn).toHaveBeenCalledWith({
+      event: "notification_unsupported",
       code: "runtime.preflight.failed",
     });
   });

@@ -64,10 +64,11 @@ The goal is requirement-level compatibility with a shorter, clearer, and easier-
 - Prefer simple, expressive code and fail-fast behavior over defensive boilerplate.
 
 ## Logging Policy
-- Runtime logs MUST use `src/logging/index.ts` (`createLogger`) instead of `console.*`.
+- Runtime logs MUST use `pino` instead of `console.*`.
 - Allowed levels: `debug`, `info`, `warn`, `error`.
 - `LOG_LEVEL` controls minimum emitted level, default is `info`.
-- Logs MUST be structured JSON and include `component` and `event`.
+- `LOG_PRETTY=1` MAY be used for local pretty output; default output is JSON.
+- Logs MUST be structured and include `component` and `event`.
 - Sensitive fields (`secret`, `token`, `authorization`, `x-secret-key`, `password`, `api_key`) MUST be redacted.
 - Secret audit logs MUST NOT contain plaintext secret values or raw secret keys.
 

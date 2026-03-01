@@ -12,7 +12,8 @@ import {
   ipcMain,
   shell,
 } from "electron";
-import { createLogger } from "../../logging/index.js";
+import pino from "pino";
+import { buildPinoOptions } from "../../shared/pino.js";
 import type { SendLogsResult } from "../shared/api.js";
 import { MainEventBus } from "../shared/ipc/event-bus.js";
 import { registerDesktopIpc } from "../shared/ipc/main-transport.js";
@@ -86,7 +87,7 @@ const serverClient = new DesktopServerClient({
   secretKey: () => backendSecretKey,
   workingDir: () => appDirs?.root ?? process.cwd(),
 });
-const logger = createLogger("desktop-main");
+const logger = pino(buildPinoOptions("desktop-main"));
 
 const startBackend = async (
   dirs: SettingsStoreAppDirs,
@@ -120,14 +121,14 @@ const startBackend = async (
   });
 
   child.stdout.on("data", (chunk) => {
-    logger.info("backend_stdout", { output: String(chunk) });
+    logger.info({ event: "backend_stdout", output: String(chunk) });
   });
   child.stderr.on("data", (chunk) => {
-    logger.warn("backend_stderr", { output: String(chunk) });
+    logger.warn({ event: "backend_stderr", output: String(chunk) });
   });
 
   await waitForHealth(baseUrl);
-  logger.info("backend_ready", { baseUrl });
+  logger.info({ event: "backend_ready", baseUrl });
   notificationService?.notify({
     code: "runtime.backend.ready",
     context: { baseUrl },
@@ -375,7 +376,7 @@ registerDesktopIpc({
       }
     },
     logInfo: (message) => {
-      logger.info("renderer_log_info", { message });
+      logger.info({ event: "renderer_log_info", message });
     },
     getWindowForEvent: (event) => BrowserWindow.fromWebContents(event.sender),
     ensureMainWindow: () => ensureMainWindow(),
@@ -407,7 +408,8 @@ void app.whenReady().then(async () => {
   windowsPreflightMessages = preflight.messages;
   if (!preflight.ok) {
     backendError = `Windows preflight failed: ${preflight.messages.join(" ")}`;
-    logger.error("windows_preflight_failed", {
+    logger.error({
+      event: "windows_preflight_failed",
       messages: windowsPreflightMessages,
     });
     notificationService.notify({ code: "runtime.preflight.failed" });
@@ -427,7 +429,8 @@ void app.whenReady().then(async () => {
       backendSecretKey = started.secretKey;
     } catch (error: unknown) {
       backendError = error instanceof Error ? error.message : String(error);
-      logger.error("backend_start_failed", {
+      logger.error({
+        event: "backend_start_failed",
         error:
           error instanceof Error
             ? { name: error.name, message: error.message }

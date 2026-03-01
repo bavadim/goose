@@ -1,4 +1,5 @@
-import { createLogger } from "../../../logging/index.js";
+import pino, { type Logger } from "pino";
+import { buildPinoOptions } from "../../../shared/pino.js";
 
 export type NotificationCode =
   | "runtime.preflight.failed"
@@ -26,11 +27,7 @@ type NotificationTransport = {
   show: (payload: NotificationPayload) => void;
 };
 
-type NotificationLogger = {
-  info: (event: string, details?: Record<string, unknown>) => void;
-  warn: (event: string, details?: Record<string, unknown>) => void;
-  error: (event: string, details?: Record<string, unknown>) => void;
-};
+type NotificationLogger = Pick<Logger, "info" | "warn" | "error">;
 
 type NotificationServiceOptions = {
   transport: NotificationTransport;
@@ -39,7 +36,7 @@ type NotificationServiceOptions = {
   dedupWindowMs?: number;
 };
 
-const defaultLogger = createLogger("desktop-notifications");
+const defaultLogger = pino(buildPinoOptions("desktop-notifications"));
 
 const toPayload = (event: NotificationEvent): NotificationPayload => {
   switch (event.code) {
@@ -97,7 +94,7 @@ export class NotificationService {
 
   notify(event: NotificationEvent): void {
     if (!this.transport.isSupported()) {
-      this.logger.warn("notification_unsupported", { code: event.code });
+      this.logger.warn({ event: "notification_unsupported", code: event.code });
       return;
     }
 
@@ -105,7 +102,8 @@ export class NotificationService {
     const current = this.now();
     const last = this.lastEmittedAt.get(key);
     if (typeof last === "number" && current - last < this.dedupWindowMs) {
-      this.logger.warn("notification_suppressed", {
+      this.logger.warn({
+        event: "notification_suppressed",
         code: event.code,
         dedupWindowMs: this.dedupWindowMs,
       });
@@ -117,9 +115,10 @@ export class NotificationService {
 
     try {
       this.transport.show(payload);
-      this.logger.info("notification_shown", { code: event.code });
+      this.logger.info({ event: "notification_shown", code: event.code });
     } catch (error: unknown) {
-      this.logger.error("notification_failed", {
+      this.logger.error({
+        event: "notification_failed",
         code: event.code,
         error:
           error instanceof Error

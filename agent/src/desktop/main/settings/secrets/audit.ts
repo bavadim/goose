@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { createLogger } from "../../../../logging/index.js";
+import pino from "pino";
+import { buildPinoOptions } from "../../../../shared/pino.js";
 import type { SecretAuditAction, SecretAuditEntry } from "./types.js";
 
-const logger = createLogger("desktop-secrets");
+const logger = pino(buildPinoOptions("desktop-secrets"));
 
 const scopeFromKey = (key: string): string => {
   const first = key.split(".")[0];
@@ -27,5 +28,5 @@ export const createSecretAuditEntry = (
 });
 
 export const emitSecretAudit = (entry: SecretAuditEntry): void => {
-  logger.info("secret_audit", entry);
+  logger.info({ event: "secret_audit", ...entry });
 };

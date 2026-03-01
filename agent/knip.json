@@ -8,6 +8,7 @@
   "ignore": [],
   "ignoreDependencies": [
     "@tailwindcss/typography",
+    "pino-pretty",
     "tailwindcss",
     "tw-animate-css"
   ]

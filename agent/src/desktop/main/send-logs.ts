@@ -1,14 +1,11 @@
+import type { Logger } from "pino";
 import type { SendLogsResult } from "../shared/api.js";
-
-type Logger = {
-  error: (event: string, details?: Record<string, unknown>) => void;
-};
 
 type ExecuteSendLogsRequestOptions = {
   fetchFn: typeof fetch;
   backendUrl: string;
   secretKey: string;
-  logger: Logger;
+  logger: Pick<Logger, "error">;
 };
 
 const SEND_LOGS_COMMAND = "/send-logs";
@@ -71,7 +68,8 @@ export const executeSendLogsRequest = async ({
       }),
     });
   } catch (error: unknown) {
-    logger.error("send_logs_request_failed", {
+    logger.error({
+      event: "send_logs_request_failed",
       error:
         error instanceof Error
           ? { name: error.name, message: error.message }
@@ -92,7 +90,8 @@ export const executeSendLogsRequest = async ({
     body = await response.text();
     return parseSsePayload(body);
   } catch (error: unknown) {
-    logger.error("send_logs_response_invalid", {
+    logger.error({
+      event: "send_logs_response_invalid",
       responseBody: body,
       error:
         error instanceof Error
