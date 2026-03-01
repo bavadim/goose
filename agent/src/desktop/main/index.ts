@@ -7,6 +7,8 @@ import { BrowserWindow, Menu, Notification, app, ipcMain } from "electron";
 import { createLogger } from "../../logging/index.js";
 import type { SendLogsResult } from "../shared/api.js";
 import { runWindowsPreflight } from "../windowsPreflight.js";
+import { MainEventBus } from "./ipc/events.js";
+import { registerDesktopIpc } from "./ipc/register.js";
 import { NotificationService } from "./notifications/service.js";
 import { executeSendLogsRequest } from "./send-logs.js";
 import { createElectronSecretCrypto } from "./settings/secrets/crypto.js";
@@ -69,6 +71,7 @@ let appDirs: SettingsStoreAppDirs | null = null;
 let settingsStore: SettingsStore | null = null;
 let notificationService: NotificationService | null = null;
 let isSendingLogs = false;
+const eventBus = new MainEventBus(() => mainWindow?.webContents ?? null);
 const logger = createLogger("desktop-main");
 
 const startBackend = async (
@@ -224,14 +227,30 @@ const createApplicationMenu = (): void => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 };
 
-ipcMain.handle("desktop:get-state", () => ({
-  backendUrl,
-  backendError,
-  windowsPreflightMessages,
-  appDirs,
-  isDev,
-}));
-ipcMain.handle("desktop:send-logs", () => sendLogsFromDesktop());
+registerDesktopIpc({
+  ipcMain,
+  rpc: {
+    getState: () => ({
+      backendUrl,
+      backendError,
+      windowsPreflightMessages,
+      appDirs,
+      isDev,
+    }),
+    sendLogs: () => sendLogsFromDesktop(),
+  },
+  cmd: {
+    eventBus,
+    notify: (input) => {
+      if (Notification.isSupported()) {
+        new Notification({ title: input.title, body: input.body }).show();
+      }
+    },
+    logInfo: (message) => {
+      logger.info("renderer_log_info", { message });
+    },
+  },
+});
 
 void app.whenReady().then(async () => {
   notificationService = new NotificationService({

@@ -5,6 +5,15 @@ import { DesktopApp } from "../src/desktop/renderer/ui/desktopApp.js";
 import type { DesktopApi } from "../src/desktop/shared/api.js";
 
 const makeApi = (overrides?: Partial<Awaited<ReturnType<DesktopApi["getState"]>>>): DesktopApi => ({
+  invoke: vi.fn(
+    async () =>
+      ({ ok: true, data: undefined }) as {
+        ok: true;
+        data: never;
+      },
+  ) as DesktopApi["invoke"],
+  send: vi.fn(),
+  on: vi.fn(() => () => {}),
   getState: vi.fn(async () => ({
     backendUrl: "http://127.0.0.1:3001",
     backendError: "",
@@ -14,6 +23,7 @@ const makeApi = (overrides?: Partial<Awaited<ReturnType<DesktopApi["getState"]>>
     ...overrides,
   })),
   sendLogs: vi.fn(async () => ({ ok: true, message: "ok" })),
+  rendererReady: vi.fn(),
 });
 
 describe("MUST desktop runtime UI requirements", () => {
