@@ -2,12 +2,13 @@ import type {
   ClientToServerMessage,
   ProtocolResult,
   ServerToClientMessage,
-} from "../../core/protocol/index.js";
+} from "../../../core/protocol.js";
+import { createLogger } from "../../../logging/index.js";
 import {
-  isClientToServerMessage,
-  isServerToClientMessage,
-} from "../../core/protocol/index.js";
-import { createLogger } from "../../logging/index.js";
+  EVENT_CHANNELS,
+  type EventChannel,
+  type EventMessage,
+} from "./contracts.js";
 import { normalizeIpcError } from "./errors.js";
 import type { MainEventBus } from "./event-bus.js";
 
@@ -35,16 +36,32 @@ const parseSseMessages = (raw: string): ServerToClientMessage[] => {
   for (const frame of frames) {
     const data = frame.slice("data: ".length);
     try {
-      const candidate = JSON.parse(data) as unknown;
-      if (isServerToClientMessage(candidate)) {
-        parsed.push(candidate);
-      }
+      parsed.push(JSON.parse(data) as ServerToClientMessage);
     } catch {
       // ignore malformed frame
     }
   }
 
   return parsed;
+};
+
+const isEventChannel = (value: string): value is EventChannel =>
+  EVENT_CHANNELS.includes(value as EventChannel);
+
+const parseForwardEvent = (
+  message: ServerToClientMessage,
+): EventMessage | null => {
+  if (message.topic !== "event.forward") {
+    return null;
+  }
+  const event = message.payload?.event;
+  if (!event || !isEventChannel(event)) {
+    return null;
+  }
+  return {
+    channel: event,
+    payload: message.payload?.payload,
+  } as EventMessage;
 };
 
 export class DesktopServerMessageBridge {
@@ -62,16 +79,6 @@ export class DesktopServerMessageBridge {
   async send(
     message: ClientToServerMessage,
   ): Promise<ProtocolResult<{ accepted: true }>> {
-    if (!isClientToServerMessage(message)) {
-      return {
-        ok: false,
-        error: {
-          code: "IPC_INVALID_INPUT",
-          message: "Invalid client message envelope",
-        },
-      };
-    }
-
     const backendUrl = this.options.backendUrl();
     const secretKey = this.options.secretKey();
     if (!backendUrl || !secretKey) {
@@ -148,11 +155,9 @@ export class DesktopServerMessageBridge {
       const body = await response.text();
       const messages = parseSseMessages(body);
       for (const message of messages) {
-        if (message.topic === "event.forward" && message.payload) {
-          this.options.eventBus.emit(
-            message.payload.event as never,
-            message.payload.payload as never,
-          );
+        const event = parseForwardEvent(message);
+        if (event) {
+          this.options.eventBus.emitMessage(event);
         }
         this.options.onMessage?.(message);
       }

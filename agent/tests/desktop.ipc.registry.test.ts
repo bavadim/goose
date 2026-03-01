@@ -3,9 +3,9 @@ import {
   CMD_CHANNELS,
   IPC_INVENTORY,
   RPC_CHANNELS,
-} from "../src/desktop/ipc/contracts.js";
-import { MainEventBus } from "../src/desktop/ipc/event-bus.js";
-import { registerDesktopIpc } from "../src/desktop/ipc/main-transport.js";
+} from "../src/desktop/shared/ipc/contracts.js";
+import { MainEventBus } from "../src/desktop/shared/ipc/event-bus.js";
+import { registerDesktopIpc } from "../src/desktop/shared/ipc/main-transport.js";
 
 type HandleFn = (event: unknown, payload: unknown) => unknown;
 type OnFn = (event: { sender: { id: number } }, payload: unknown) => void;

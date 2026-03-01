@@ -5,8 +5,8 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import type {
   ClientToServerMessage,
   ServerToClientMessage,
-} from "../core/protocol/index.js";
-import { isClientToServerMessage } from "../core/protocol/index.js";
+} from "../core/protocol.js";
+import type { operations } from "../shared/http/openapi.generated.js";
 import { buildSsePayload, resolveResponse } from "./responder.js";
 import {
   type OpenAPISpec,
@@ -17,7 +17,9 @@ import {
 
 const PUBLIC_PATHS = new Set(["/status", "/mcp-ui-proxy", "/mcp-app-proxy"]);
 
-type RequestWithQuery = FastifyRequest<{ Querystring: { secret?: string } }>;
+type RequestWithQuery = FastifyRequest<{
+  Querystring: operations["mcp_ui_proxy"]["parameters"]["query"];
+}>;
 type HttpMethod =
   | "get"
   | "post"
@@ -32,11 +34,7 @@ type OpenApiOperationObject = {
 };
 type OpenApiPathItem = Partial<Record<HttpMethod, OpenApiOperationObject>>;
 type ReplyRequest = FastifyRequest<{
-  Body?: {
-    user_message?: {
-      content?: Array<{ type?: string; text?: string }>;
-    };
-  };
+  Body: operations["reply"]["requestBody"]["content"]["application/json"];
 }>;
 const desktopEventQueue: ServerToClientMessage[] = [];
 
@@ -61,14 +59,6 @@ const dequeueDesktopEvent = (): ServerToClientMessage => {
     },
   };
 };
-
-const toDeterministicInvalidMessageError = (): {
-  code: string;
-  message: string;
-} => ({
-  code: "IPC_INVALID_INPUT",
-  message: "Invalid desktop message envelope",
-});
 
 const dispatchDesktopClientMessage = (
   message: ClientToServerMessage,
@@ -249,11 +239,9 @@ export const buildApp = (): ReturnType<typeof Fastify> => {
     "/desktop/messages",
     { preHandler: withAuth(secretKey) },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!isClientToServerMessage(request.body)) {
-        reply.code(400).send(toDeterministicInvalidMessageError());
-        return;
-      }
-      const result = dispatchDesktopClientMessage(request.body);
+      const result = dispatchDesktopClientMessage(
+        request.body as ClientToServerMessage,
+      );
       reply.code(200).send(result);
     },
   );

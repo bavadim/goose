@@ -5,3 +5,4 @@ coverage
 .npm-cache
 .vite
 test-results
+src/shared/http/openapi.generated.ts

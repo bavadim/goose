@@ -2,7 +2,7 @@ import type {
   ClientToServerMessage,
   ProtocolResult,
   ServerToClientMessage,
-} from "../../core/protocol/index.js";
+} from "../../../core/protocol.js";
 
 export type DesktopState = {
   backendUrl: string;
@@ -229,6 +229,28 @@ export const EVENT_CHANNELS = [
 export type RpcChannel = (typeof RPC_CHANNELS)[number];
 export type CmdChannel = (typeof CMD_CHANNELS)[number];
 export type EventChannel = (typeof EVENT_CHANNELS)[number];
+
+export type EventMessage = {
+  [C in EventChannel]: { channel: C; payload: EventPayloadMap[C] };
+}[EventChannel];
+
+export type RpcHandler<C extends RpcChannel> = (
+  payload: RpcRequestMap[C],
+  event: import("electron").IpcMainInvokeEvent,
+) => Promise<RpcResponseMap[C]> | RpcResponseMap[C];
+
+export type CmdHandler<C extends CmdChannel> = (
+  payload: CmdPayloadMap[C],
+  event: import("electron").IpcMainEvent,
+) => void;
+
+export type RpcHandlerMap = {
+  [C in RpcChannel]: RpcHandler<C>;
+};
+
+export type CmdHandlerMap = {
+  [C in CmdChannel]: CmdHandler<C>;
+};
 
 export const IPC_INVENTORY = {
   rpc: RPC_CHANNELS,

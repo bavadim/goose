@@ -1,7 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "files": {
-    "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+    "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+    "ignore": ["src/shared/http/openapi.generated.ts"]
   },
   "formatter": {
     "enabled": true,

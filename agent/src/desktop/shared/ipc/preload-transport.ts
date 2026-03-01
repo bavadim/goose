@@ -1,8 +1,8 @@
-import type { IpcRenderer } from "electron";
+import type { IpcRenderer, IpcRendererEvent } from "electron";
 import type {
   ClientToServerMessage,
   ServerToClientMessage,
-} from "../../core/protocol/index.js";
+} from "../../../core/protocol.js";
 import type {
   CmdChannel,
   CmdPayloadMap,
@@ -25,7 +25,7 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
       : [payload: RpcRequestMap[C]]
   ) => {
     try {
-      const payload = args[0] as RpcRequestMap[C] | undefined;
+      const payload = args[0];
       const data = (await ipcRenderer.invoke(
         channel,
         payload,
@@ -48,7 +48,7 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
       ? []
       : [payload: CmdPayloadMap[C]]
   ): void => {
-    const payload = args[0] as CmdPayloadMap[C] | undefined;
+    const payload = args[0];
     ipcRenderer.send(channel, payload);
   };
 
@@ -56,7 +56,7 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
     channel: C,
     listener: (payload: EventPayloadMap[C]) => void,
   ) => {
-    const wrapped = (_event: unknown, payload: EventPayloadMap[C]) => {
+    const wrapped = (_event: IpcRendererEvent, payload: EventPayloadMap[C]) => {
       listener(payload);
     };
     ipcRenderer.on(channel, wrapped);
@@ -84,7 +84,10 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
     sendMessage: (message: ClientToServerMessage) =>
       invoke("desktop:send-message", message),
     subscribeMessages: (listener: (message: ServerToClientMessage) => void) => {
-      const wrapped = (_event: unknown, message: ServerToClientMessage) => {
+      const wrapped = (
+        _event: IpcRendererEvent,
+        message: ServerToClientMessage,
+      ) => {
         listener(message);
       };
       ipcRenderer.on(MESSAGE_EVENT_CHANNEL, wrapped);

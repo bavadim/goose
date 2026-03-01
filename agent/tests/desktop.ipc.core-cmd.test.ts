@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { MainEventBus } from "../src/desktop/ipc/event-bus.js";
-import { createCmdHandlerMap } from "../src/desktop/ipc/main-transport.js";
+import { MainEventBus } from "../src/desktop/shared/ipc/event-bus.js";
+import { createCmdHandlerMap } from "../src/desktop/shared/ipc/main-transport.js";
 
 const makeDeps = () => {
   const send = vi.fn();
@@ -71,19 +71,31 @@ describe("MUST desktop IPC core CMD requirements", () => {
     );
   });
 
-  it("MUST reject invalid command payloads without raw exceptions", () => {
+  it("MUST pass command payloads through typed handlers", () => {
     const { deps } = makeDeps();
     const handlers = createCmdHandlerMap(deps);
 
     handlers["open-in-chrome"]({ url: "file:///etc/passwd" }, {
       sender: { id: 1 },
     } as never);
-    handlers["broadcast-theme-change"]({ mode: "light" }, {
+    handlers["broadcast-theme-change"](
+      { mode: "light", useSystemTheme: false, theme: "default" },
+      {
+        sender: { id: 1 },
+      } as never,
+    );
+
+    expect(deps.openInChrome).toHaveBeenCalledWith("file:///etc/passwd");
+    expect(deps.logInfo).not.toHaveBeenCalled();
+  });
+
+  it("MUST ignore unsupported command channels", () => {
+    const { deps } = makeDeps();
+    const handlers = createCmdHandlerMap(deps);
+    handlers.notify({ title: "x", body: "y" }, {
       sender: { id: 1 },
     } as never);
-
-    expect(deps.openInChrome).not.toHaveBeenCalled();
-    expect(deps.logInfo).toHaveBeenCalledTimes(2);
+    expect(deps.notify).toHaveBeenCalledWith({ title: "x", body: "y" });
   });
 
   it("MUST support sync app version channel", () => {

@@ -1,4 +1,8 @@
-import type { EventChannel, EventPayloadMap } from "./contracts.js";
+import type {
+  EventChannel,
+  EventMessage,
+  EventPayloadMap,
+} from "./contracts.js";
 
 type RendererSink = {
   id: number;
@@ -6,37 +10,36 @@ type RendererSink = {
   isDestroyed?: () => boolean;
 };
 
-type QueuedEvent = {
-  channel: EventChannel;
-  payload: EventPayloadMap[EventChannel];
-};
+const toEventMessage = <C extends EventChannel>(
+  channel: C,
+  payload: EventPayloadMap[C],
+): EventMessage => ({ channel, payload }) as EventMessage;
 
 export class MainEventBus {
   private readonly readyRendererIds = new Set<number>();
 
-  private readonly queue: QueuedEvent[] = [];
+  private readonly queue: EventMessage[] = [];
 
   constructor(private readonly getSink: () => RendererSink | null) {}
 
   emit<C extends EventChannel>(channel: C, payload: EventPayloadMap[C]): void {
+    const message = toEventMessage(channel, payload);
+    this.emitMessage(message);
+  }
+
+  emitMessage(message: EventMessage): void {
     const sink = this.getSink();
     if (!sink || sink.isDestroyed?.()) {
-      this.queue.push({
-        channel,
-        payload: payload as EventPayloadMap[EventChannel],
-      });
+      this.queue.push(message);
       return;
     }
 
     if (!this.readyRendererIds.has(sink.id)) {
-      this.queue.push({
-        channel,
-        payload: payload as EventPayloadMap[EventChannel],
-      });
+      this.queue.push(message);
       return;
     }
 
-    sink.send(channel, payload);
+    sink.send(message.channel, message.payload);
   }
 
   markRendererReady(rendererId: number): void {

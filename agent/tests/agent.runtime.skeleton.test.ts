@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { AgentRuntime } from "../src/server/agent/runtime.js";
+import { transitionAgentState } from "../src/server/agent/state.js";
 import {
-  AgentRuntime,
   InMemorySessionStore,
   StubExtension,
   StubProvider,
-  transitionAgentState,
-} from "../src/server/agent/index.js";
+} from "../src/server/agent/stubs.js";
 
 describe("MUST agent runtime skeleton requirements", () => {
   it("MUST provide deterministic state transitions", () => {

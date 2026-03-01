@@ -1,27 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  DesktopServerMessageBridge,
-  MainEventBus,
-} from "../src/desktop/ipc/index.js";
+import { MainEventBus } from "../src/desktop/shared/ipc/event-bus.js";
+import { DesktopServerMessageBridge } from "../src/desktop/shared/ipc/message-bridge.js";
 
 describe("MUST desktop server bridge requirements", () => {
-  it("MUST return deterministic error for invalid send envelope", async () => {
+  it("MUST forward typed client message envelope to backend", async () => {
     const eventBus = new MainEventBus(() => null);
+    const fetchFn = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ accepted: true }), { status: 200 }),
+    );
     const bridge = new DesktopServerMessageBridge({
       backendUrl: () => "http://127.0.0.1:43111",
       secretKey: () => "dev-secret",
       eventBus,
-      fetchFn: vi.fn(),
+      fetchFn,
     });
 
-    const result = await bridge.send({ id: "", topic: "", sentAt: "" });
+    const message = {
+      id: "1",
+      topic: "desktop.chat-window.create",
+      sentAt: "2026-01-01T00:00:00.000Z",
+      payload: { query: "hello" },
+    } as const;
+    const result = await bridge.send(message);
     expect(result).toEqual({
-      ok: false,
-      error: {
-        code: "IPC_INVALID_INPUT",
-        message: "Invalid client message envelope",
-      },
+      ok: true,
+      data: { accepted: true },
     });
+    expect(fetchFn).toHaveBeenCalledWith(
+      "http://127.0.0.1:43111/desktop/messages",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(message),
+      }),
+    );
   });
 
   it("MUST process typed SSE events from stream endpoint", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRpcHandlerMap } from "../src/desktop/ipc/main-transport.js";
+import { createRpcHandlerMap } from "../src/desktop/shared/ipc/main-transport.js";
 
 const makeDependencies = () => ({
   getState: vi.fn(() => ({
@@ -49,17 +49,15 @@ describe("MUST desktop IPC core RPC requirements", () => {
     );
   });
 
-  it("MUST validate URL payloads for open-external and fetch-metadata", async () => {
+  it("MUST forward URL payloads for open-external and fetch-metadata", async () => {
     const deps = makeDependencies();
     const handlers = createRpcHandlerMap(deps);
 
-    await expect(
-      handlers["open-external"]({ url: "file:///etc/passwd" }, {} as never),
-    ).rejects.toMatchObject({ code: "IPC_INVALID_INPUT" });
+    await handlers["open-external"]({ url: "file:///etc/passwd" }, {} as never);
+    await handlers["fetch-metadata"]({ url: "not-a-url" }, {} as never);
 
-    await expect(
-      handlers["fetch-metadata"]({ url: "not-a-url" }, {} as never),
-    ).rejects.toMatchObject({ code: "IPC_INVALID_INPUT" });
+    expect(deps.openExternal).toHaveBeenCalledWith("file:///etc/passwd");
+    expect(deps.fetchMetadata).toHaveBeenCalledWith("not-a-url");
   });
 
   it("MUST forward filesystem RPC payloads after validation", async () => {
@@ -94,8 +92,11 @@ describe("MUST desktop IPC core RPC requirements", () => {
     const deps = makeDependencies();
     const handlers = createRpcHandlerMap(deps);
 
-    expect(() => handlers["get-settings"](undefined, {} as never)).toThrow(
-      "IPC channel is not implemented: get-settings",
-    );
+    await expect(
+      handlers["get-settings"](undefined, {} as never),
+    ).rejects.toMatchObject({
+      code: "IPC_NOT_FOUND",
+      message: "IPC channel is not implemented: get-settings",
+    });
   });
 });

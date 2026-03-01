@@ -293,18 +293,22 @@ describe("MUST manual server requirements", () => {
     });
   });
 
-  it("MUST reject invalid typed desktop message envelopes deterministically", async () => {
+  it("MUST accept desktop message envelopes as typed transport payload", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/desktop/messages",
       headers: { "X-Secret-Key": "dev-secret" },
-      payload: { topic: "" },
+      payload: {
+        id: "msg-2",
+        topic: "runtime.ping",
+        sentAt: "2026-01-01T00:00:00.000Z",
+      },
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({
-      code: "IPC_INVALID_INPUT",
-      message: "Invalid desktop message envelope",
+      accepted: true,
+      echoedTopic: "runtime.ping",
     });
   });
 

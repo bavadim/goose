@@ -1,7 +1,7 @@
 import type {
   ProtocolResult,
   ServerToClientMessage,
-} from "../../core/protocol/index.js";
+} from "../../core/protocol.js";
 import type { ExtensionPort, ProviderPort, SessionPort } from "./ports.js";
 import { type AgentRuntimeState, transitionAgentState } from "./state.js";
 

@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DesktopApi, DesktopState } from "../../shared/api.js";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../ui-kit/index.js";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/card.js";
 import { GooseIcon } from "./icons/index.js";
 
 const HomePage = ({ state }: { state: DesktopState | null }) => {

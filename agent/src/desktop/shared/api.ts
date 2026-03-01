@@ -2,4 +2,4 @@ export type {
   DesktopApi,
   DesktopState,
   SendLogsResult,
-} from "../ipc/index.js";
+} from "./ipc/contracts.js";

@@ -14,13 +14,11 @@ import {
   shell,
 } from "electron";
 import { createLogger } from "../../logging/index.js";
-import {
-  DesktopServerMessageBridge,
-  IPC_MESSAGE_EVENT_CHANNEL,
-  MainEventBus,
-  registerDesktopIpc,
-} from "../ipc/index.js";
 import type { SendLogsResult } from "../shared/api.js";
+import { MainEventBus } from "../shared/ipc/event-bus.js";
+import { registerDesktopIpc } from "../shared/ipc/main-transport.js";
+import { DesktopServerMessageBridge } from "../shared/ipc/message-bridge.js";
+import { IPC_MESSAGE_EVENT_CHANNEL } from "../shared/ipc/preload-transport.js";
 import { runWindowsPreflight } from "../windowsPreflight.js";
 import { NotificationService } from "./notifications/service.js";
 import { executeSendLogsRequest } from "./send-logs.js";
@@ -377,30 +375,7 @@ registerDesktopIpc({
       }
     },
     sendClientMessage: async (payload) => {
-      const message = payload as {
-        id?: unknown;
-        topic?: unknown;
-        sentAt?: unknown;
-        payload?: unknown;
-      };
-      if (
-        typeof message.id !== "string" ||
-        typeof message.topic !== "string" ||
-        typeof message.sentAt !== "string"
-      ) {
-        throw {
-          code: "IPC_INVALID_INPUT",
-          message: "Invalid client message envelope",
-        };
-      }
-      const result = await messageBridge.send({
-        id: message.id,
-        topic: message.topic,
-        sentAt: message.sentAt,
-        ...(message.payload && typeof message.payload === "object"
-          ? { payload: message.payload as Record<string, unknown> }
-          : {}),
-      });
+      const result = await messageBridge.send(payload);
       if (!result.ok) {
         throw result.error;
       }

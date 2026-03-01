@@ -22,7 +22,7 @@ import type {
   TabsListContract,
   TabsTriggerContract,
   TooltipContentContract,
-} from "../src/desktop/renderer/ui-kit/index.js";
+} from "../src/desktop/renderer/ui-kit/contracts.js";
 
 describe("MUST ui kit contract requirements", () => {
   it("MUST expose typed contracts for public UI kit components", () => {
