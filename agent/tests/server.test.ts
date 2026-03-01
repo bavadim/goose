@@ -272,65 +272,6 @@ describe("MUST manual server requirements", () => {
     expect(response.statusCode).toBe(204);
     expect(response.body).toBe("");
   });
-
-  it("MUST accept valid typed desktop message envelopes", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/desktop/messages",
-      headers: { "X-Secret-Key": "dev-secret" },
-      payload: {
-        id: "msg-1",
-        topic: "desktop.chat-window.create",
-        sentAt: "2026-01-01T00:00:00.000Z",
-        payload: { query: "hello" },
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({
-      accepted: true,
-      echoedTopic: "desktop.chat-window.create",
-    });
-  });
-
-  it("MUST accept desktop message envelopes as typed transport payload", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/desktop/messages",
-      headers: { "X-Secret-Key": "dev-secret" },
-      payload: {
-        id: "msg-2",
-        topic: "runtime.ping",
-        sentAt: "2026-01-01T00:00:00.000Z",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({
-      accepted: true,
-      echoedTopic: "runtime.ping",
-    });
-  });
-
-  it("MUST stream typed desktop server events on /desktop/messages/stream", async () => {
-    const response = await app.inject({
-      method: "GET",
-      url: "/desktop/messages/stream",
-      headers: { "X-Secret-Key": "dev-secret" },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(String(response.headers["content-type"] ?? "")).toContain(
-      "text/event-stream",
-    );
-    const payload = parseSseDataFrame(response.body);
-    expect(payload.topic).toBe("event.forward");
-    expect(typeof payload.id).toBe("string");
-    expect(typeof (payload.payload as { event?: unknown }).event).toBe(
-      "string",
-    );
-    expect(typeof payload.sentAt).toBe("string");
-  });
 });
 
 describe("MUST runtime contract requirements", () => {

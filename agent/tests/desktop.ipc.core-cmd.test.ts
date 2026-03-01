@@ -25,7 +25,7 @@ const makeDeps = () => {
       restartApp: vi.fn(),
       openInChrome: vi.fn(async () => undefined),
       getAppVersion: vi.fn(() => "1.0.0"),
-      dispatchClientMessage: vi.fn(async () => undefined),
+      startSession: vi.fn(async () => undefined),
     },
   };
 };
@@ -65,10 +65,7 @@ describe("MUST desktop IPC core CMD requirements", () => {
       useSystemTheme: false,
       theme: "default",
     });
-    expect(deps.dispatchClientMessage).toHaveBeenCalledWith(
-      "desktop.chat-window.create",
-      { query: "hello" },
-    );
+    expect(deps.startSession).toHaveBeenCalledWith("hello");
   });
 
   it("MUST pass command payloads through typed handlers", () => {

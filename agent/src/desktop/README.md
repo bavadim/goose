@@ -20,7 +20,7 @@
 - запуск и остановка backend sidecar-процесса;
 - health-check backend;
 - wiring typed IPC registry из `src/desktop/shared/ipc/main-transport.ts`;
-- bridge typed сообщений desktop <-> server через `DesktopServerMessageBridge`.
+- typed desktop IPC registry + прямой OpenAPI HTTP client к `goosed`.
 
 ### 2) Settings/Secrets Service
 `src/desktop/main/settings/store.ts`
@@ -55,7 +55,6 @@
 Экспортирует безопасный `window.desktopApi` через `createDesktopApi` из `src/desktop/shared/ipc/preload-transport.ts`.
 Публичный контракт:
 - `getState`, `sendLogs`,
-- `sendMessage`, `subscribeMessages`,
 - internal typed `invoke/send/on` для compatibility tests.
 
 ### 6) Renderer
@@ -75,8 +74,8 @@
 - payload безопасный: без plaintext секретов и без сырых ошибок.
 
 ### 8) Core Contracts
-- `src/core/protocol.ts` — typed протокол desktop <-> server (envelopes, topics).
 - `src/desktop/shared/ipc/*` — typed Electron IPC contracts + transport + error normalization.
+- `src/desktop/main/server-client.ts` — typed OpenAPI client adapter for `/agent/*`, `/reply`, `/sessions/*`.
 - `src/desktop/renderer/ui-kit/contracts.ts` — typed контракты публичных UI primitives.
 - `src/server/agent/*` — skeleton агентского цикла (state transitions, Provider/Extension stubs).
 - `src/desktop/shared/api.ts` — thin re-export runtime API для renderer.
@@ -128,7 +127,6 @@
 
 ## Key Files Map
 - Main runtime: `src/desktop/main/index.ts`
-- Protocol core: `src/core/protocol.ts`
 - IPC core: `src/desktop/shared/ipc/*`
 - Agent skeleton: `src/server/agent/*`
 - UI contracts: `src/desktop/renderer/ui-kit/contracts.ts`

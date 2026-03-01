@@ -1,7 +1,4 @@
-import type {
-  ProtocolError,
-  ProtocolErrorCode,
-} from "../../../core/protocol.js";
+import type { ProtocolError, ProtocolErrorCode } from "./contracts.js";
 
 const DEFAULT_IPC_ERROR_CODE: ProtocolErrorCode = "IPC_INTERNAL";
 

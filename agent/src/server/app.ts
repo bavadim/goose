@@ -1,11 +1,6 @@
-import { randomUUID } from "node:crypto";
 import swagger from "@fastify/swagger";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 
-import type {
-  ClientToServerMessage,
-  ServerToClientMessage,
-} from "../core/protocol.js";
 import type { operations } from "../shared/http/openapi.generated.js";
 import { buildSsePayload, resolveResponse } from "./responder.js";
 import {
@@ -36,45 +31,6 @@ type OpenApiPathItem = Partial<Record<HttpMethod, OpenApiOperationObject>>;
 type ReplyRequest = FastifyRequest<{
   Body: operations["reply"]["requestBody"]["content"]["application/json"];
 }>;
-const desktopEventQueue: ServerToClientMessage[] = [];
-
-const enqueueDesktopEvent = (message: ServerToClientMessage): void => {
-  desktopEventQueue.push(message);
-  while (desktopEventQueue.length > 100) {
-    desktopEventQueue.shift();
-  }
-};
-
-const dequeueDesktopEvent = (): ServerToClientMessage => {
-  const existing = desktopEventQueue.shift();
-  if (existing) {
-    return existing;
-  }
-  return {
-    id: randomUUID(),
-    topic: "event.forward",
-    sentAt: new Date().toISOString(),
-    payload: {
-      event: "focus-input",
-    },
-  };
-};
-
-const dispatchDesktopClientMessage = (
-  message: ClientToServerMessage,
-): { accepted: true; echoedTopic: string } => {
-  // TODO(v2): connect to real agent runtime bus instead of stub echo.
-  enqueueDesktopEvent({
-    id: randomUUID(),
-    topic: "event.forward",
-    sentAt: new Date().toISOString(),
-    payload: {
-      event: "new-chat",
-      payload: { sourceTopic: message.topic },
-    },
-  });
-  return { accepted: true, echoedTopic: message.topic };
-};
 
 const isPublicPath = (path: string): boolean => PUBLIC_PATHS.has(path);
 
@@ -234,29 +190,6 @@ export const buildApp = (): ReturnType<typeof Fastify> => {
     mode: "dynamic",
     openapi: spec as never,
   });
-
-  app.post(
-    "/desktop/messages",
-    { preHandler: withAuth(secretKey) },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const result = dispatchDesktopClientMessage(
-        request.body as ClientToServerMessage,
-      );
-      reply.code(200).send(result);
-    },
-  );
-
-  app.get(
-    "/desktop/messages/stream",
-    { preHandler: withAuth(secretKey) },
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      const nextEvent = dequeueDesktopEvent();
-      reply
-        .code(200)
-        .type("text/event-stream")
-        .send(`data: ${JSON.stringify(nextEvent)}\n\n`);
-    },
-  );
 
   app.get("/openapi.json", async () => spec);
   registerOpenApiRoutes(spec, app, secretKey);

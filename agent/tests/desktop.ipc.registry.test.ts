@@ -37,7 +37,6 @@ const makeRpcDeps = () => ({
   openExternal: async () => undefined,
   fetchMetadata: async () => "text/plain",
   checkOllama: async () => true,
-  sendClientMessage: async () => ({ accepted: true as const }),
 });
 
 const makeCmdDeps = (eventBus: MainEventBus) => ({
@@ -55,7 +54,7 @@ const makeCmdDeps = (eventBus: MainEventBus) => ({
   restartApp: () => {},
   openInChrome: async () => undefined,
   getAppVersion: () => "1.0.0",
-  dispatchClientMessage: async () => undefined,
+  startSession: async () => undefined,
 });
 
 describe("MUST desktop IPC registry requirements", () => {

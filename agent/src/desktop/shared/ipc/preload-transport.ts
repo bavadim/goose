@@ -1,9 +1,5 @@
 import type { IpcRenderer, IpcRendererEvent } from "electron";
 import type {
-  ClientToServerMessage,
-  ServerToClientMessage,
-} from "../../../core/protocol.js";
-import type {
   CmdChannel,
   CmdPayloadMap,
   DesktopApi,
@@ -14,8 +10,6 @@ import type {
   RpcResponseMap,
 } from "./contracts.js";
 import { normalizeIpcError } from "./errors.js";
-
-const MESSAGE_EVENT_CHANNEL = "desktop:message-event";
 
 export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
   const invoke = async <C extends RpcChannel>(
@@ -81,20 +75,6 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
   return {
     getState: () => unwrap(invoke("desktop:get-state")),
     sendLogs: () => unwrap(invoke("desktop:send-logs")),
-    sendMessage: (message: ClientToServerMessage) =>
-      invoke("desktop:send-message", message),
-    subscribeMessages: (listener: (message: ServerToClientMessage) => void) => {
-      const wrapped = (
-        _event: IpcRendererEvent,
-        message: ServerToClientMessage,
-      ) => {
-        listener(message);
-      };
-      ipcRenderer.on(MESSAGE_EVENT_CHANNEL, wrapped);
-      return () => {
-        ipcRenderer.removeListener(MESSAGE_EVENT_CHANNEL, wrapped);
-      };
-    },
     rendererReady: () => {
       send("react-ready");
     },
@@ -103,5 +83,3 @@ export const createDesktopApi = (ipcRenderer: IpcRenderer): DesktopApi => {
     on,
   };
 };
-
-export const IPC_MESSAGE_EVENT_CHANNEL = MESSAGE_EVENT_CHANNEL;

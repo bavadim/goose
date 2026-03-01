@@ -31,7 +31,6 @@ const makeDependencies = () => ({
   openExternal: vi.fn(async () => undefined),
   fetchMetadata: vi.fn(async () => "text/html"),
   checkOllama: vi.fn(async () => true),
-  sendClientMessage: vi.fn(async () => ({ accepted: true as const })),
 });
 
 describe("MUST desktop IPC core RPC requirements", () => {

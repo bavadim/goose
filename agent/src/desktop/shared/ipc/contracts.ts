@@ -1,8 +1,21 @@
-import type {
-  ClientToServerMessage,
-  ProtocolResult,
-  ServerToClientMessage,
-} from "../../../core/protocol.js";
+export type ProtocolErrorCode =
+  | "IPC_INVALID_INPUT"
+  | "IPC_UNAUTHORIZED"
+  | "IPC_UNSUPPORTED_PLATFORM"
+  | "IPC_NOT_FOUND"
+  | "IPC_IO_ERROR"
+  | "IPC_INTERNAL";
+
+export type ProtocolError = {
+  code: ProtocolErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+  retryable?: boolean;
+};
+
+export type ProtocolResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: ProtocolError };
 
 export type DesktopState = {
   backendUrl: string;
@@ -58,7 +71,6 @@ export type RpcRequestMap = {
   "get-current-version": undefined;
   "desktop:get-state": undefined;
   "desktop:send-logs": undefined;
-  "desktop:send-message": ClientToServerMessage;
 };
 
 export type RpcResponseMap = {
@@ -108,7 +120,6 @@ export type RpcResponseMap = {
   "get-current-version": string;
   "desktop:get-state": DesktopState;
   "desktop:send-logs": SendLogsResult;
-  "desktop:send-message": { accepted: true };
 };
 
 export type CmdPayloadMap = {
@@ -192,7 +203,6 @@ export const RPC_CHANNELS = [
   "get-current-version",
   "desktop:get-state",
   "desktop:send-logs",
-  "desktop:send-message",
 ] as const;
 
 export const CMD_CHANNELS = [
@@ -263,12 +273,6 @@ export type DesktopEventUnsubscribe = () => void;
 export type DesktopApi = {
   getState: () => Promise<DesktopState>;
   sendLogs: () => Promise<SendLogsResult>;
-  sendMessage: (
-    message: ClientToServerMessage,
-  ) => Promise<ProtocolResult<{ accepted: true }>>;
-  subscribeMessages: (
-    listener: (message: ServerToClientMessage) => void,
-  ) => DesktopEventUnsubscribe;
   rendererReady: () => void;
   invoke: <C extends RpcChannel>(
     channel: C,

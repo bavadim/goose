@@ -1,5 +1,4 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,11 +16,10 @@ import { createLogger } from "../../logging/index.js";
 import type { SendLogsResult } from "../shared/api.js";
 import { MainEventBus } from "../shared/ipc/event-bus.js";
 import { registerDesktopIpc } from "../shared/ipc/main-transport.js";
-import { DesktopServerMessageBridge } from "../shared/ipc/message-bridge.js";
-import { IPC_MESSAGE_EVENT_CHANNEL } from "../shared/ipc/preload-transport.js";
 import { runWindowsPreflight } from "../windowsPreflight.js";
 import { NotificationService } from "./notifications/service.js";
 import { executeSendLogsRequest } from "./send-logs.js";
+import { DesktopServerClient } from "./server-client.js";
 import { createElectronSecretCrypto } from "./settings/secrets/crypto.js";
 import { SettingsStore, type SettingsStoreAppDirs } from "./settings/store.js";
 
@@ -83,15 +81,10 @@ let settingsStore: SettingsStore | null = null;
 let notificationService: NotificationService | null = null;
 let isSendingLogs = false;
 const eventBus = new MainEventBus(() => mainWindow?.webContents ?? null);
-const messageBridge = new DesktopServerMessageBridge({
-  backendUrl: () => backendUrl,
+const serverClient = new DesktopServerClient({
+  baseUrl: () => backendUrl,
   secretKey: () => backendSecretKey,
-  eventBus,
-  onMessage: (message) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC_MESSAGE_EVENT_CHANNEL, message);
-    }
-  },
+  workingDir: () => appDirs?.root ?? process.cwd(),
 });
 const logger = createLogger("desktop-main");
 
@@ -143,7 +136,6 @@ const startBackend = async (
 };
 
 const shutdownBackend = (): void => {
-  messageBridge.stop();
   if (!backendProcess || backendProcess.killed) {
     return;
   }
@@ -374,13 +366,6 @@ registerDesktopIpc({
         return false;
       }
     },
-    sendClientMessage: async (payload) => {
-      const result = await messageBridge.send(payload);
-      if (!result.ok) {
-        throw result.error;
-      }
-      return result.data;
-    },
   },
   cmd: {
     eventBus,
@@ -402,20 +387,8 @@ registerDesktopIpc({
       await shell.openExternal(url);
     },
     getAppVersion: () => app.getVersion(),
-    dispatchClientMessage: async (topic, payload) => {
-      const result = await messageBridge.send({
-        id: randomUUID(),
-        topic,
-        sentAt: new Date().toISOString(),
-        ...(payload ? { payload } : {}),
-      });
-      if (!result.ok) {
-        logger.warn("bridge_send_failed", {
-          topic,
-          code: result.error.code,
-          message: result.error.message,
-        });
-      }
+    startSession: async (query) => {
+      await serverClient.startSession(query);
     },
   },
 });
@@ -452,7 +425,6 @@ void app.whenReady().then(async () => {
       backendProcess = started.process;
       backendUrl = started.baseUrl;
       backendSecretKey = started.secretKey;
-      messageBridge.start();
     } catch (error: unknown) {
       backendError = error instanceof Error ? error.message : String(error);
       logger.error("backend_start_failed", {

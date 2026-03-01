@@ -1,15 +1,16 @@
-import type {
-  ProtocolResult,
-  ServerToClientMessage,
-} from "../../core/protocol.js";
+import type { components } from "../../shared/http/openapi.generated.js";
 import type { ExtensionPort, ProviderPort, SessionPort } from "./ports.js";
 import { type AgentRuntimeState, transitionAgentState } from "./state.js";
+
+type AgentRuntimeResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: "IPC_INTERNAL"; message: string } };
 
 type AgentRuntimeDependencies = {
   provider: ProviderPort;
   extensions: ExtensionPort[];
   sessions: SessionPort;
-  emit: (message: ServerToClientMessage) => Promise<void>;
+  emit: (message: components["schemas"]["MessageEvent"]) => Promise<void>;
   now?: () => string;
 };
 
@@ -23,7 +24,7 @@ export class AgentRuntime {
   async runTurn(
     sessionId: string,
     input: string,
-  ): Promise<ProtocolResult<{ state: AgentRuntimeState }>> {
+  ): Promise<AgentRuntimeResult<{ state: AgentRuntimeState }>> {
     const session =
       (await this.deps.sessions.get(sessionId)) ??
       (await this.deps.sessions.create(sessionId));
@@ -50,12 +51,23 @@ export class AgentRuntime {
       state = transitionAgentState(state, { type: "PROVIDER_OK" });
 
       await this.deps.emit({
-        id: `runtime-${sessionId}`,
-        topic: "event.forward",
-        sentAt: this.now(),
-        payload: {
-          event: "new-chat",
-          payload: { text: response.text },
+        type: "Message",
+        message: {
+          role: "assistant",
+          created: Date.now(),
+          metadata: {
+            userVisible: true,
+            agentVisible: true,
+          },
+          content: [{ type: "text", text: response.text }],
+        },
+        token_state: {
+          accumulatedInputTokens: 0,
+          accumulatedOutputTokens: 0,
+          accumulatedTotalTokens: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
         },
       });
 

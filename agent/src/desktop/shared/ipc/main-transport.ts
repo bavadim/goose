@@ -10,7 +10,6 @@ import {
   type RpcHandler,
   type RpcHandlerMap,
   type RpcRequestMap,
-  type RpcResponseMap,
 } from "./contracts.js";
 import type { MainEventBus } from "./event-bus.js";
 
@@ -61,9 +60,6 @@ type RpcHandlerDependencies = {
   openExternal: (url: string) => Promise<void>;
   fetchMetadata: (url: string) => Promise<string>;
   checkOllama: () => Promise<boolean>;
-  sendClientMessage: (
-    payload: RpcRequestMap["desktop:send-message"],
-  ) => Promise<RpcResponseMap["desktop:send-message"]>;
 };
 
 type CmdHandlerDependencies = {
@@ -75,10 +71,7 @@ type CmdHandlerDependencies = {
   restartApp: () => void;
   openInChrome: (url: string) => Promise<void>;
   getAppVersion: () => string;
-  dispatchClientMessage: (
-    topic: string,
-    payload?: Record<string, unknown>,
-  ) => Promise<void>;
+  startSession: (query?: string) => Promise<void>;
 };
 
 type IpcRegistryDependencies = {
@@ -156,8 +149,6 @@ export const createRpcHandlerMap = (
   "get-current-version": unsupportedRpc("get-current-version"),
   "desktop:get-state": () => dependencies.getState(),
   "desktop:send-logs": async () => dependencies.sendLogs(),
-  "desktop:send-message": async (payload) =>
-    dependencies.sendClientMessage(payload),
 });
 
 export const createCmdHandlerMap = (
@@ -175,9 +166,13 @@ export const createCmdHandlerMap = (
         const window = dependencies.ensureMainWindow();
         window.show();
         window.focus();
-        void dependencies.dispatchClientMessage("desktop.chat-window.create", {
-          ...(payload.query ? { query: payload.query } : {}),
-        });
+        void dependencies
+          .startSession(payload.query)
+          .catch((error: unknown) => {
+            dependencies.logInfo(
+              `create-chat-window rejected: ${JSON.stringify(error)}`,
+            );
+          });
         if (payload.query) {
           dependencies.eventBus.emit("set-initial-message", payload.query);
         }
