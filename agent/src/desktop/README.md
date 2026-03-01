@@ -77,7 +77,7 @@
 - `src/desktop/shared/ipc/*` — typed Electron IPC contracts + transport + error normalization.
 - `src/desktop/main/server-client.ts` — typed OpenAPI client adapter for `/agent/*`, `/reply`, `/sessions/*`.
 - `src/desktop/renderer/ui-kit/contracts.ts` — typed контракты публичных UI primitives.
-- `src/server/agent/*` — skeleton агентского цикла (state transitions, Provider/Extension stubs).
+- `src/server/runtime/*` — actor-based skeleton агентского цикла (SessionManager, cycle actors, provider/extension stubs).
 - `src/desktop/shared/api.ts` — thin re-export runtime API для renderer.
 - `src/desktop/main/settings/config.ts` и `src/desktop/main/settings/settings.ts` — доменные типы и нормализация настроек.
 
@@ -128,7 +128,7 @@
 ## Key Files Map
 - Main runtime: `src/desktop/main/index.ts`
 - IPC core: `src/desktop/shared/ipc/*`
-- Agent skeleton: `src/server/agent/*`
+- Agent skeleton: `src/server/runtime/*`
 - UI contracts: `src/desktop/renderer/ui-kit/contracts.ts`
 - Settings service: `src/desktop/main/settings/store.ts`
 - Notifications service: `src/desktop/main/notifications/service.ts`

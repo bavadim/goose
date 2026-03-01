@@ -178,6 +178,16 @@ const parseSseDataFrame = (body: string): Record<string, unknown> => {
   return JSON.parse(line.slice("data: ".length)) as Record<string, unknown>;
 };
 
+const parseSseFrames = (body: string): Record<string, unknown>[] =>
+  body
+    .split("\n\n")
+    .map((frame) => frame.trim())
+    .filter((frame) => frame.startsWith("data: "))
+    .map(
+      (frame) =>
+        JSON.parse(frame.slice("data: ".length)) as Record<string, unknown>,
+    );
+
 beforeAll(async () => {
   await app.ready();
 });
@@ -271,6 +281,96 @@ describe("MUST manual server requirements", () => {
 
     expect(response.statusCode).toBe(204);
     expect(response.body).toBe("");
+  });
+
+  it("MUST manage lifecycle through start resume restart stop endpoints", async () => {
+    const started = await app.inject({
+      method: "POST",
+      url: "/agent/start",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { working_dir: "/tmp" },
+    });
+    expect(started.statusCode).toBe(200);
+    const startBody = JSON.parse(started.body) as Record<string, unknown>;
+    const sessionId = String(startBody.id ?? "");
+    expect(sessionId.length).toBeGreaterThan(0);
+
+    const resumed = await app.inject({
+      method: "POST",
+      url: "/agent/resume",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { session_id: sessionId, load_model_and_extensions: true },
+    });
+    expect(resumed.statusCode).toBe(200);
+
+    const restarted = await app.inject({
+      method: "POST",
+      url: "/agent/restart",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { session_id: sessionId },
+    });
+    expect(restarted.statusCode).toBe(200);
+
+    const stopped = await app.inject({
+      method: "POST",
+      url: "/agent/stop",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { session_id: sessionId },
+    });
+    expect(stopped.statusCode).toBe(200);
+  });
+
+  it("MUST return deterministic 424 for reply on stopped session", async () => {
+    const started = await app.inject({
+      method: "POST",
+      url: "/agent/start",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { working_dir: "/tmp" },
+    });
+    const sessionId = String(
+      (JSON.parse(started.body) as Record<string, unknown>).id ?? "",
+    );
+    await app.inject({
+      method: "POST",
+      url: "/agent/stop",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: { session_id: sessionId },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/reply",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: {
+        session_id: sessionId,
+        user_message: {
+          role: "user",
+          created: "2024-01-01T00:00:00.000Z",
+          content: [{ type: "text", text: "hello again" }],
+        },
+      },
+    });
+    expect(response.statusCode).toBe(424);
+  });
+
+  it("MUST emit detached subcycle notifications for summon-prefixed tools", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/reply",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: {
+        session_id: "session-summon",
+        user_message: {
+          role: "user",
+          created: "2024-01-01T00:00:00.000Z",
+          content: [{ type: "text", text: "/tool summon.demo run" }],
+        },
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const events = parseSseFrames(response.body);
+    expect(events.some((event) => event.type === "Notification")).toBe(true);
+    expect(events.some((event) => event.type === "Finish")).toBe(true);
   });
 });
 

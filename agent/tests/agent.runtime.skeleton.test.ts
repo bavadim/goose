@@ -1,37 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { AgentRuntime } from "../src/server/agent/runtime.js";
-import { transitionAgentState } from "../src/server/agent/state.js";
-import {
-  InMemorySessionStore,
-  StubExtension,
-  StubProvider,
-} from "../src/server/agent/stubs.js";
+import { runAgentCycle } from "../src/server/runtime/agent-cycle.machine.js";
+import { SessionManager } from "../src/server/runtime/session-manager.js";
+import { createSessionActor } from "../src/server/runtime/session.machine.js";
+import { ToolRouter } from "../src/server/runtime/tool-router.js";
 
 describe("MUST agent runtime skeleton requirements", () => {
   it("MUST provide deterministic state transitions", () => {
-    expect(transitionAgentState("idle", { type: "START" })).toBe("running");
-    expect(transitionAgentState("running", { type: "PROVIDER_OK" })).toBe(
-      "streaming",
-    );
-    expect(transitionAgentState("streaming", { type: "STREAM_DONE" })).toBe(
-      "completed",
-    );
+    const actor = createSessionActor("idle");
+    actor.send({ type: "START" });
+    expect(actor.getSnapshot().context.status).toBe("running");
+    actor.send({ type: "STOP" });
+    expect(actor.getSnapshot().context.status).toBe("stopped");
+    actor.stop();
   });
 
   it("MUST execute stubbed provider runtime turn", async () => {
-    const emitted: unknown[] = [];
-    const runtime = new AgentRuntime({
-      provider: new StubProvider(),
-      extensions: [new StubExtension("stub")],
-      sessions: new InMemorySessionStore(),
-      emit: async (message) => {
-        emitted.push(message);
-      },
+    const sessions = new SessionManager({
+      settingsDir: process.cwd(),
+    });
+    const session = sessions.create("session-1", process.cwd());
+    const router = new ToolRouter({
+      getActiveExtensions: () => [],
     });
 
-    const result = await runtime.runTurn("session-1", "hello");
+    const result = runAgentCycle({
+      session: { ...session, status: "running" },
+      userMessage: {
+        role: "user",
+        created: Date.now(),
+        metadata: {
+          userVisible: true,
+          agentVisible: true,
+        },
+        content: [{ type: "text", text: "hello" }],
+      },
+      router,
+    });
 
-    expect(result.ok).toBe(true);
-    expect(emitted.length).toBe(1);
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.some((event) => event.type === "Message")).toBe(true);
   });
 });

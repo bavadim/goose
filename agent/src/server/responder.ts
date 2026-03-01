@@ -79,15 +79,3 @@ export const resolveResponse = (
   const body = buildResponseBody(mediaTypeObject, spec);
   return { statusCode, contentType, body };
 };
-
-export const buildSsePayload = (
-  operation: JsonMap,
-  spec: OpenAPISpec,
-): string => {
-  const responses = (operation.responses ?? {}) as JsonMap;
-  const ok = (responses["200"] ?? {}) as JsonMap;
-  const content = (ok.content ?? {}) as JsonMap;
-  const stream = content["text/event-stream"] as JsonMap | undefined;
-  const body = buildResponseBody(stream ?? {}, spec);
-  return `data: ${JSON.stringify(body)}\n\n`;
-};
