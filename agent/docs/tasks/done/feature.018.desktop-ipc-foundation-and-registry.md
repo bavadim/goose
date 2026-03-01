@@ -101,3 +101,19 @@ Server Impact: none
   - Guardrail: все channel payload types объявляются только в `shared/ipc.ts`.
 - Риск: скрытая ломка существующих каналов при рефакторе `main/index.ts`.
   - Guardrail: regression tests для `desktop:get-state` и `desktop:send-logs` обязательны.
+
+## Implementation Notes
+
+- Modified files:
+  - `src/desktop/shared/ipc.ts`
+  - `src/desktop/shared/api.ts`
+  - `src/desktop/preload/index.ts`
+  - `src/desktop/main/index.ts`
+  - `src/desktop/main/ipc/register.ts`
+  - `src/desktop/main/ipc/events.ts`
+  - `src/desktop/main/ipc/handlers/rpc.ts`
+  - `src/desktop/main/ipc/handlers/cmd.ts`
+  - `tests/desktop.ipc.preload.test.ts`
+  - `tests/desktop.ipc.registry.test.ts`
+  - `tests/desktop.settings.ui.test.tsx`
+- Latest implementation commit: `6bad78a22`
