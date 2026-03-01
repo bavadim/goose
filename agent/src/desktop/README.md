@@ -61,7 +61,16 @@
 - `ui/desktopApp.tsx`: shell приложения и runtime-статус backend;
 - renderer не имеет доступа к plaintext секретам.
 
-### 7) Shared and Domain Types
+### 7) Notifications Service
+`src/desktop/main/notifications/service.ts`
+
+`NotificationService` отвечает за системные (OS) всплывающие уведомления:
+- канал: только OS notifications (Electron `Notification`);
+- триггеры: critical runtime events (`preflight failed`, `backend ready`, `backend start failed`);
+- anti-spam: dedup одинаковых событий в окне 30 секунд;
+- payload безопасный: без plaintext секретов и без сырых ошибок.
+
+### 8) Shared and Domain Types
 - `src/desktop/shared/api.ts` — runtime API между preload и renderer.
 - `src/desktop/main/settings/config.ts` и `src/desktop/main/settings/settings.ts` — доменные типы и нормализация настроек.
 
@@ -74,7 +83,8 @@
 - mapped secrets.
 4. Main запускает backend (`server.js`) с этим env.
 5. Main проверяет `/status` backend.
-6. Renderer получает состояние через `desktop:get-state`.
+6. Main отправляет OS-нотификации по critical runtime событиям (через `NotificationService`).
+7. Renderer получает состояние через `desktop:get-state`.
 
 ## Settings and Secrets Model
 
@@ -105,10 +115,12 @@
 - Нет отдельного server-side API для управления desktop settings/secrets.
 - Нет передачи plaintext секретов между процессами UI.
 - Нет удаленного backend режима: desktop всегда поднимает локальный backend.
+- Нет in-app toast/центра уведомлений в renderer (только OS notifications).
 
 ## Key Files Map
 - Main runtime: `src/desktop/main/index.ts`
 - Settings service: `src/desktop/main/settings/store.ts`
+- Notifications service: `src/desktop/main/notifications/service.ts`
 - Secret internals: `src/desktop/main/settings/secrets/*`
 - Config internals: `src/desktop/main/settings/config-store.ts`
 - Preload bridge: `src/desktop/preload/index.ts`

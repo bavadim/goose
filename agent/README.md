@@ -60,10 +60,11 @@ npm run test:fast
 `npm run test` includes:
 - TypeScript type check
 - Biome checks
-- OpenAPI validation
+- OpenAPI schema validation (`swagger-cli`)
 - Vitest suites
 - dependency/dead-code checks (`knip`, `dpdm`)
 - duplication check (`jscpd`)
+- production dependency audit (`npm audit --omit=dev --audit-level=high`)
 - desktop builds (main/preload/renderer)
 - Playwright e2e (with `xvfb-run` on headless Linux)
 
@@ -76,6 +77,7 @@ npm run desktop:make:win
 ```
 
 Each packaging target runs the full test pipeline first.
+Packaging is built via `electron-builder`.
 
 ### Environment variables
 

@@ -128,3 +128,8 @@ Deliverable is specification and compatibility baseline only.
 - `MUST` gap matrix maps each original behavior to current project status with no uncategorized entries.
 - `MUST` requirement language is normative and testable (`MUST/SHOULD/MAY`) without narrative-only statements.
 
+## Implementation Notes
+
+- RFC deliverable completed in `docs/requirements/DESKTOP_DEEPLINK_PROTOCOL.md`.
+- Remaining runtime implementation scope is tracked in `docs/tasks/todo/feature.023.desktop-deeplink-protocol-implementation.md`.
+- Task moved from `todo` to `done` during backlog grooming to remove RFC duplication in active queue.

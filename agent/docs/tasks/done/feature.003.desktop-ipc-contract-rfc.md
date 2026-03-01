@@ -118,6 +118,21 @@ This is a requirements RFC and migration baseline only.
 - `MUST` RFC contains all known main->renderer event channels used by renderer (`window.electron.on` consumers).
 - `MUST` each listed channel has explicit type contract and error behavior (no `TBD`).
 - `MUST` gap matrix maps each legacy channel to current implementation status in this repository.
+
+## Implementation Notes
+
+- Создан нормативный RFC:
+  - `docs/requirements/DESKTOP_IPC_CONTRACT.md`
+- В RFC зафиксированы:
+  - полный inventory legacy IPC (`invoke/handle`, `send/on`, main->renderer events),
+  - canonical ID model (`rpc/cmd/event`),
+  - normalized IPC error envelope,
+  - security requirements на IPC boundary,
+  - gap matrix `implemented/partial/missing/incompatible` относительно `src/desktop`.
+- Покрытие inventory сверено с исходниками:
+  - `../ui/desktop/src/preload.ts`
+  - `../ui/desktop/src/main.ts`
+  - `../ui/desktop/src/utils/autoUpdater.ts`
+  - `../ui/desktop/src/utils/recipeHash.ts`
 - `MUST` RFC uses normative requirement language (`MUST/SHOULD/MAY`) consistently.
 - `MUST` RFC is actionable: implementation can start without additional design decisions on IPC structure.
-

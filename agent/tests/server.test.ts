@@ -167,6 +167,16 @@ const expectedSuccess = (
 };
 
 const operations = listOperations();
+const parseSseDataFrame = (body: string): Record<string, unknown> => {
+  const line = body
+    .split("\n")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("data: "));
+  if (!line) {
+    throw new Error("Missing SSE data frame");
+  }
+  return JSON.parse(line.slice("data: ".length)) as Record<string, unknown>;
+};
 
 beforeAll(async () => {
   await app.ready();
@@ -207,6 +217,34 @@ describe("MUST manual server requirements", () => {
     );
     expect(response.body.startsWith("data: ")).toBe(true);
     expect(response.body.endsWith("\n\n")).toBe(true);
+  });
+
+  it("MUST return deterministic send-logs stub event for /reply command /send-logs", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/reply",
+      headers: { "X-Secret-Key": "dev-secret" },
+      payload: {
+        session_id: "session-send-logs",
+        user_message: {
+          role: "user",
+          created: "2024-01-01T00:00:00.000Z",
+          content: [{ type: "text", text: "/send-logs" }],
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(String(response.headers["content-type"] ?? "")).toContain(
+      "text/event-stream",
+    );
+    const payload = parseSseDataFrame(response.body);
+    expect(payload.ok).toBe(true);
+    expect(payload.message).toBe("Send logs dry-run completed");
+    expect(String(payload.artifactPath ?? "")).toContain(
+      "send-logs-dry-run.txt",
+    );
+    expect(payload.remotePath).toBe("dry-run://pending");
   });
 
   it("MUST enforce secret query on /mcp-ui-proxy", async () => {

@@ -4,6 +4,8 @@ import { cn } from "../lib/cn.js";
 
 export const Sheet = DialogPrimitive.Root;
 export const SheetTrigger = DialogPrimitive.Trigger;
+export const SheetTitle = DialogPrimitive.Title;
+export const SheetDescription = DialogPrimitive.Description;
 
 export const SheetContent = ({
   className,
@@ -19,4 +21,11 @@ export const SheetContent = ({
       {...props}
     />
   </DialogPrimitive.Portal>
+);
+
+export const SheetHeader = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"div">) => (
+  <div className={cn("mb-3 flex flex-col gap-1.5", className)} {...props} />
 );

@@ -1,108 +1,109 @@
 ---
 ID: 2
-Title: Logging observability, Unified policy and implementation
+Title: [CLIENT][svc:existing:logging] Logging observability, Migrate runtime logging to pino and lock policy
 Complexity: medium
+Category: CLIENT
+Primary Module: src/logging/index.ts
+Server Impact: server-runtime
 ---
 
-# Logging observability, Unified policy and implementation
+# [CLIENT][svc:existing:logging] Logging observability, Migrate runtime logging to pino and lock policy
 
 ## 1. Executive Summary
 
 **Abstract:**  
-The project currently has ad-hoc logging (`console.*`) and no unified policy. We need a single logging approach that is simple, strict, and usable across server and desktop processes, with explicit rules in `AGENTS.md`.
+В проекте уже есть единый интерфейс логгера, но сейчас используется самописная реализация JSON-логов. Нужно полностью перейти на `pino` как стандарт runtime-логирования для server и desktop, закрепить это в `AGENTS.md`, и обеспечить безопасное структурированное логирование без утечки секретов.
 
 **Objectives (SMART):**
-- **Specific:** Introduce one logging framework and one project-wide logging policy.
-- **Measurable:** Replace direct `console.*` in runtime paths with shared logger calls; add tests for config/redaction behavior.
-- **Achievable:** Implement with minimal new modules and no deep architecture changes.
-- **Relevant:** Improves diagnostics, production support, and code consistency.
-- **Time-bound:** 1 implementation cycle (single task).
+- **Specific:** Заменить текущую реализацию логгера на `pino`, сохранить единый API `createLogger(component)`, и унифицировать конфиг (`LOG_LEVEL`, `LOG_PRETTY`).
+- **Measurable:** В runtime-коде нет `console.*`; все логи идут через `pino` с redaction и структурированными полями.
+- **Achievable:** Реализуется локально без изменения бизнес-логики.
+- **Relevant:** Улучшает диагностику, поддержку и безопасность, снижает риск невалидных логов в будущем.
+- **Time-bound:** Один инженерный цикл.
 
 ## 2. Context & Problem Statement
 
 ### Current State
 
-- Server startup uses `console.log` / `console.error`.
-- Desktop runtime had useful temporary diagnostics but no persistent policy.
-- `AGENTS.md` does not define logging rules, levels, or data-safety constraints.
+- Есть общий логгер `src/logging/index.ts`, но это кастомная реализация.
+- Логи уже структурированы и редактируют чувствительные ключи, но поведение не стандартизировано отраслевым инструментом.
+- Политика в `AGENTS.md` описывает правила логирования, но должна явно фиксировать `pino` как обязательную библиотеку и настройки.
 
 ### The "Why"
 
-Without standard logging, failures are harder to diagnose, and future LLM-generated code may introduce inconsistent or unsafe logs.
+Нужен стандартный и предсказуемый logging stack. `pino` дает стабильный формат, зрелую экосистему, лучшее сопровождение и меньше собственного кода для поддержки.
 
 ### In Scope
 
-- Add unified logging policy to `AGENTS.md`.
-- Add shared logging utility for runtime code.
-- Integrate logging into server + desktop runtime paths.
-- Add tests for logger behavior (level/config/redaction).
+- Внедрение `pino` как единственной runtime logging библиотеки.
+- Сохранение текущего контрактного API `createLogger(component)` для минимального churn кода.
+- Конфигурация логирования через env (`LOG_LEVEL`, `LOG_PRETTY`).
+- Redaction policy для чувствительных полей.
+- Обновление `AGENTS.md` и тестов под новый logging backend.
 
 ### Out of Scope
 
-- Centralized log shipping (ELK/Loki/etc.).
-- Metrics/tracing platform integration.
-- CI/CD logging pipeline redesign.
+- Внешний log shipping (ELK/Loki/SaaS).
+- Метрики/трейсинг (OpenTelemetry, Sentry APM).
+- Изменение бизнес-логики server/desktop.
 
 ## 3. Proposed Technical Solution
 
 ### Architecture Overview
 
-Use `pino` as the single logger framework with a compact structure:
-- `src/logging/config.ts` for env defaults and redaction helpers.
-- `src/logging/index.ts` exporting logger factory for Node/browser contexts.
-
-Default behavior:
-- Dev: pretty logs.
-- Prod/Test: JSON logs.
-- Output: stdout/stderr.
+1. В `src/logging/index.ts` заменить кастомный writer на `pino`.
+2. Экспортировать адаптер `createLogger(component)` с текущим shape (`debug/info/warn/error`), чтобы не менять call sites.
+3. Добавить `pino` redaction для чувствительных ключей:
+   - `secret`, `token`, `authorization`, `x-secret-key`, `password`, `api_key`.
+4. Поддержать режимы:
+   - default: JSON logs;
+   - `LOG_PRETTY=1`: pretty output (dev-only).
+5. Обновить правила в `AGENTS.md`:
+   - использовать только `createLogger`/`pino`,
+   - запрет `console.*` в runtime paths.
 
 ### Interface Changes
 
-- New env settings:
-  - `LOG_LEVEL` (`debug|info|warn|error`)
-  - `LOG_PRETTY` (`1|0`)
-- New shared logger API:
+- Public logging API остается:
   - `createLogger(component: string)`
-  - Methods: `debug`, `info`, `warn`, `error`
+  - `.debug(event, details?)`
+  - `.info(event, details?)`
+  - `.warn(event, details?)`
+  - `.error(event, details?)`
+- Env contract:
+  - `LOG_LEVEL=debug|info|warn|error` (default `info`)
+  - `LOG_PRETTY=0|1` (default `0`)
 
 ### Project Code Reference
 
-- `AGENTS.md`
+- `src/logging/index.ts`
 - `src/server/index.ts`
 - `src/server/app.ts`
 - `src/desktop/main/index.ts`
-- `src/desktop/preload/index.ts`
-- `src/desktop/renderer/main.tsx`
+- `src/desktop/main/notifications/service.ts`
+- `AGENTS.md`
+- `tests/*logging*` (новые/обновленные)
 
 ## 4. Requirements
 
-- `MUST` use `pino` as the single logging library in runtime code.
-- `MUST` define logging policy in `AGENTS.md`:
-  - allowed levels,
-  - required structured fields,
-  - sensitive-data restrictions,
-  - env settings and defaults.
-- `MUST` remove direct `console.*` from runtime paths where shared logger can be used.
-- `MUST` add best-effort redaction for sensitive keys (`secret`, `token`, `authorization`, `x-secret-key`, `password`).
-- `MUST` log key lifecycle points:
-  - server startup success/failure,
-  - auth rejection warnings,
-  - desktop main lifecycle and backend connectivity errors.
-- `SHOULD` include `component` and `event` fields in all logs.
-- `SHOULD` include `durationMs` for IO-bound operations where available.
-- `COULD` add renderer/preload error-surface logs for `unhandledrejection` and global errors.
-- `WON'T` add external log aggregation in this task.
+- `MUST` использовать `pino` как единственный runtime logging backend.
+- `MUST` сохранять единый адаптер `createLogger(component)` для остального кода.
+- `MUST` поддерживать `LOG_LEVEL` и `LOG_PRETTY` с детерминированными default.
+- `MUST` структурировать каждый лог с полями минимум: `timestamp`, `level`, `component`, `event`.
+- `MUST` редактировать чувствительные данные по ключам (`secret|token|authorization|x-secret-key|password|api_key`).
+- `MUST` не использовать `console.*` в runtime paths server/desktop.
+- `MUST` закрепить policy в `AGENTS.md` с явной ссылкой на `pino` и конфиг.
+- `SHOULD` сохранять существующие event names, чтобы не ломать диагностику.
+- `SHOULD` логировать startup/runtime ошибки с безопасным metadata-only payload.
+- `WON'T` добавлять внешние сервисы логирования в этой задаче.
 
 ## 5. Acceptance Criteria
 
-- `MUST` have a dedicated `Logging Policy` section in `AGENTS.md` including:
-  - logger library name,
-  - logger settings (`LOG_LEVEL`, `LOG_PRETTY`) and defaults.
-- `MUST` pass `npm run test` with no regressions.
-- `MUST` have tests validating:
-  - logger level/default resolution,
-  - pretty/json mode resolution by env,
-  - sensitive data redaction.
-- `MUST` produce structured logs in server startup and desktop main runtime flows.
-- `SHOULD` ensure protected-route auth failures emit `warn` logs without exposing secrets.
-- `SHOULD` ensure startup/runtime failures emit `error` logs with safe error metadata.
+- `MUST` `src/logging/index.ts` использует `pino` и проходит `npm run test`.
+- `MUST` в runtime-коде нет прямых `console.*` (кроме допустимых тестовых/tooling файлов).
+- `MUST` тесты покрывают:
+  - `LOG_LEVEL` default и override,
+  - `LOG_PRETTY` behavior,
+  - redaction чувствительных полей.
+- `MUST` `AGENTS.md` содержит актуальную logging policy с `pino` и env-настройками.
+- `MUST` изменения не ломают существующие тесты server/desktop.

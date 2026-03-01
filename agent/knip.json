@@ -1,8 +1,5 @@
 {
   "entry": [
-    "src/server/index.ts",
-    "scripts/vitest-notify-reporter.mjs",
-    "forge.config.ts",
     "src/desktop/renderer/main.tsx",
     "src/desktop/renderer/index.html",
     "src/desktop/windowsPreflight.ts"

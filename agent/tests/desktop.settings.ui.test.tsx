@@ -13,6 +13,7 @@ const makeApi = (overrides?: Partial<Awaited<ReturnType<DesktopApi["getState"]>>
     isDev: true,
     ...overrides,
   })),
+  sendLogs: vi.fn(async () => ({ ok: true, message: "ok" })),
 });
 
 describe("MUST desktop runtime UI requirements", () => {

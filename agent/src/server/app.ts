@@ -25,6 +25,13 @@ type OpenApiOperationObject = {
   responses?: Record<string, unknown>;
 };
 type OpenApiPathItem = Partial<Record<HttpMethod, OpenApiOperationObject>>;
+type ReplyRequest = FastifyRequest<{
+  Body?: {
+    user_message?: {
+      content?: Array<{ type?: string; text?: string }>;
+    };
+  };
+}>;
 
 const isPublicPath = (path: string): boolean => PUBLIC_PATHS.has(path);
 
@@ -59,6 +66,29 @@ const handleMcpUiProxy = (
     .code(200)
     .type("text/html")
     .send("<!doctype html><html><body><h1>MCP UI Proxy</h1></body></html>");
+};
+
+const extractReplyCommand = (request: ReplyRequest): string | null => {
+  const blocks = request.body?.user_message?.content;
+  if (!Array.isArray(blocks)) {
+    return null;
+  }
+  for (const block of blocks) {
+    if (block?.type === "text" && typeof block.text === "string") {
+      return block.text.trim();
+    }
+  }
+  return null;
+};
+
+const buildSendLogsStubPayload = (): string => {
+  // TODO(v2): replace dry-run stub with real log upload command pipeline.
+  return JSON.stringify({
+    ok: true,
+    message: "Send logs dry-run completed",
+    artifactPath: `${process.env.AGENT_LOGS_DIR ?? ""}/send-logs-dry-run.txt`,
+    remotePath: "dry-run://pending",
+  });
 };
 
 const registerOpenApiRoutes = (
@@ -110,6 +140,14 @@ const registerOpenApiRoutes = (
           const statusCode = pickSuccessStatus(operation.responses ?? {});
 
           if (openApiPath === "/reply" && method === "post") {
+            const command = extractReplyCommand(request as ReplyRequest);
+            if (command === "/send-logs") {
+              reply
+                .code(200)
+                .type("text/event-stream")
+                .send(`data: ${buildSendLogsStubPayload()}\n\n`);
+              return;
+            }
             const payload = buildSsePayload(
               operation as Record<string, unknown>,
               spec,

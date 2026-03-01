@@ -35,12 +35,19 @@ Tasks are never deleted. They are moved between folders using `git mv`.
 
 Each task is a Markdown file with:
 
-* Metadata (ID, Title, Complexity)
+* Metadata (ID, Title, Complexity, Category, Primary Module, Server Impact)
 * Problem description
 * Scope (in/out)
 * Technical overview
 * Requirements
 * Acceptance criteria
+
+Required metadata conventions:
+
+* `Category`: `CLIENT` or `INFRA`
+* `Title`: MUST include service marker, e.g. `[CLIENT][svc:existing:settings-store] ...`
+* `Primary Module`: one owning module/path
+* `Server Impact`: `none`, `orchestrator-only`, or `server-runtime`
 
 When completed, add:
 

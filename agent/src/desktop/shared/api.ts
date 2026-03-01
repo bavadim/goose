@@ -6,6 +6,14 @@ export type DesktopState = {
   isDev: boolean;
 };
 
+export type SendLogsResult = {
+  ok: boolean;
+  message: string;
+  artifactPath?: string;
+  remotePath?: string;
+};
+
 export type DesktopApi = {
   getState: () => Promise<DesktopState>;
+  sendLogs: () => Promise<SendLogsResult>;
 };

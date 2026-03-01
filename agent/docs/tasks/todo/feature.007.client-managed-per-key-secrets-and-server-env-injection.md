@@ -1,19 +1,22 @@
 ---
 ID: 7
-Title: Desktop security, Move to client-managed per-key secrets and env-only server boot
+Title: [CLIENT][svc:existing:settings-store] Desktop security, Complete client-managed secrets/settings propagation with backend restart
 Complexity: high
+Category: CLIENT
+Primary Module: src/desktop/main/settings/store.ts
+Server Impact: orchestrator-only
 ---
 
-# Desktop security, Move to client-managed per-key secrets and env-only server boot
+# [CLIENT][svc:existing:settings-store] Desktop security, Complete client-managed secrets/settings propagation with backend restart
 
 ## 1. Executive Summary
 
 **Abstract:**  
-Нужно внедрить хранение секретов в desktop-клиенте по модели per-key, убрать серверное управление секретами и перевести сервер на env-only конфигурацию. Desktop main должен стартовать backend-процесс с env, собранным из client-side secret store, и перезапускать сервер при изменении секретов.
+Базовая модель client-managed secrets и env-only boot уже внедрена, но runtime-поток применения изменений неполный: обновления ключей и настроек должны гарантированно доноситься до backend через restart. Задача — закрыть этот gap и зафиксировать детерминированное поведение restart.
 
 **Objectives (SMART):**
-- **Specific:** Реализовать client-managed secret store, env injection в backend spawn, и унифицированный lifecycle старта server из main.
-- **Measurable:** Появляются IPC методы для metadata-only управления секретами; сервер получает секреты только через env; тесты покрывают mapping и restart flow.
+- **Specific:** Доработать runtime lifecycle так, чтобы изменения secrets/settings всегда приводили к controlled backend restart с новым env snapshot.
+- **Measurable:** Для операций изменения secrets/settings есть единый apply-flow с restart и подтверждением health; тесты покрывают restart/rollback behavior.
 - **Achievable:** Реализуется в текущем Electron + TypeScript стеке.
 - **Relevant:** Упрощает контракт и изолирует секреты от server API слоя.
 - **Time-bound:** Один полный инженерный цикл.
@@ -22,21 +25,20 @@ Complexity: high
 
 ### Current State
 
-- Секреты пока не выделены в отдельный client-side слой.
-- Dev lifecycle запускает server отдельно от desktop main.
-- Server runtime не получает централизованный env snapshot из desktop secret store.
+- Секреты уже хранятся client-side по модели per-key (`DesktopSecretStore`) с secure backend + fallback `secrets.env`.
+- Backend уже запускается из desktop main и получает env через `SettingsStore.buildServerEnv(...)`.
+- Deterministic key->env mapping уже реализован.
+- Gap: runtime-обновления секретов/настроек не связаны с обязательным restart backend, поэтому сервер может работать со stale env до следующего старта.
 
 ### The "Why"
 
-Требуется строгий контракт: секреты живут в клиенте, сервер работает только с env. Это упрощает безопасность и делает поведение dev/prod единообразным.
+Требуется strict runtime contract: при изменении любого значения, влияющего на server env (ключи/настройки), backend должен перезапускаться и проходить health-check, иначе поведение становится недетерминированным.
 
 ### In Scope
 
-- Secret store в desktop main (per-key).
-- Fallback policy при проблемах secure backend.
-- Deterministic key->env mapping.
-- Backend restart на secret change.
-- Унификация dev/prod запуска server из main.
+- Restart orchestration в desktop main для изменений secrets/settings.
+- Единый apply-flow: сохранить -> пересобрать env -> restart backend -> health-check -> статус результата.
+- Поведение при ошибке restart (rollback/сообщение об ошибке/сохранение процесса в консистентном состоянии).
 - Тесты и docs updates.
 
 ### Out of Scope
@@ -54,28 +56,25 @@ Complexity: high
 3. При старте backend main собирает env из:
    - базовых runtime env,
    - mapped per-key secret env.
-4. При изменении секрета main перезапускает backend с новым env snapshot.
-5. Renderer получает только metadata/status API, без plaintext secret values.
+4. При изменении секрета или настроек, влияющих на env, main выполняет controlled restart backend с новым env snapshot.
+5. После restart main подтверждает готовность backend через health-check.
+6. Renderer получает только metadata/status API, без plaintext secret values.
 
 ### Interface Changes
 
-- New IPC contract:
-  - `secrets:status`
-  - `secrets:list`
-  - `secrets:upsert`
-  - `secrets:remove`
-  - event `secrets:changed`
-- `desktop:get-state` расширяется полями:
-  - `secretBackend`
-  - `serverRestarting`
+- Публичный desktop API не обязан раскрывать plaintext секреты.
+- Должен существовать deterministic apply entrypoint для изменений, влияющих на server env.
+- `desktop:get-state` SHOULD отражать runtime restart status (`idle|restarting|failed`) для диагностируемости.
 
 ### Project Code Reference
 
 - `src/desktop/main/index.ts`
-- `src/desktop/main/secrets/*`
+- `src/desktop/main/settings/secrets/*`
+- `src/desktop/main/settings/*`
 - `src/desktop/shared/api.ts`
 - `src/desktop/preload/index.ts`
 - `tests/secrets.*.test.ts`
+- `tests/settings-store.test.ts`
 - `tests/e2e/desktop.smoke.spec.ts`
 
 ## 4. Requirements
@@ -89,16 +88,23 @@ Complexity: high
   - `sftp.*`
   - `mcp.system.*`
   - `mcp.ext.<id>.*`
-- `MUST` перезапускать backend после `secrets:upsert` и `secrets:remove`.
+- `MUST` перезапускать backend после любого изменения secrets/settings, которое влияет на server env.
+- `MUST` использовать единый controlled restart flow:
+  - graceful stop старого процесса,
+  - старт нового процесса с обновленным env,
+  - health-check readiness,
+  - детерминированный результат (`ok|error`).
 - `MUST` поддерживать fallback `secrets.env` при недоступности secure backend.
 - `SHOULD` вести metadata-only аудит операций с секретами.
 - `SHOULD` возвращать детерминированный статус backend restart в desktop state.
+- `SHOULD` не терять работоспособный backend при неуспешном restart (best-effort rollback на последний рабочий env/process).
 - `WON'T` добавлять авто-ротацию секретов в рамках задачи.
 
 ## 5. Acceptance Criteria
 
-- `MUST` IPC secrets API работает без раскрытия значений секретов в renderer.
 - `MUST` backend получает ожидаемые env переменные из per-key storage.
 - `MUST` изменение секрета вызывает restart backend и восстановление health.
+- `MUST` изменение настройки, влияющей на env, вызывает restart backend и восстановление health.
+- `MUST` при ошибке restart возвращается детерминированная ошибка без утечки секретов.
 - `MUST` dev режим не требует отдельного запуска `src/server/index.ts`.
 - `MUST` тесты `npm run test` проходят с новыми unit/e2e сценариями.

@@ -1,17 +1,56 @@
 {
   "name": "agent",
   "version": "1.0.0",
+  "main": ".vite/build/main.js",
   "scripts": {
-    "dev": "sh -c 'electron-forge start & vitest --watch --reporter=default --reporter=./scripts/vitest-notify-reporter.mjs'",
+    "dev": "concurrently -k -n renderer,electron,test -c cyan,green,magenta \"vite --config vite.electron.renderer.config.ts\" \"npm run dev:electron\" \"vitest --watch --reporter=default --reporter=./scripts/vitest-notify-reporter.mjs\"",
+    "dev:electron": "concurrently -k -n build,electron -c yellow,blue \"npm run build:desktop:watch\" \"wait-on .vite/build/main.js .vite/build/preload.cjs .vite/build/server.js && MAIN_WINDOW_VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build:desktop": "vite build --config vite.server.config.ts && vite build --config vite.electron.main.config.ts && vite build --config vite.electron.preload.config.ts && vite build --config vite.electron.renderer.config.ts",
+    "build:desktop:watch": "concurrently -k -n server,main,preload -c cyan,green,magenta \"vite build --watch --config vite.server.config.ts\" \"vite build --watch --config vite.electron.main.config.ts\" \"vite build --watch --config vite.electron.preload.config.ts\"",
     "desktop:dev": "npm run dev",
-    "desktop:make:mac": "npm run icons:build && npm run test && electron-forge make --platform=darwin",
-    "desktop:make:win": "npm run icons:build && npm run test && electron-forge make --platform=win32",
-    "desktop:make:linux": "npm run icons:build && npm run test && electron-forge make --platform=linux",
+    "desktop:make:mac": "npm run icons:build && npm run test && electron-builder --mac",
+    "desktop:make:win": "npm run icons:build && npm run test && electron-builder --win",
+    "desktop:make:linux": "npm run icons:build && npm run test && electron-builder --linux",
     "icons:build": "node scripts/icons.mjs build",
     "icons:check": "node scripts/icons.mjs check",
+    "audit:prod": "npm_config_cache=.npm-cache npm audit --omit=dev --audit-level=high",
     "test:fast": "tsc --noEmit && vitest run",
-    "test": "npm run icons:build && tsc --noEmit && biome check . && npm run icons:check && openapi validate docs/requirements/GOOSE_SERVER_OPENAPI.json && vitest run && knip && dpdm --exit-code circular:1 --warning false --tree false \"./src/**/*.{ts,tsx}\" && jscpd --pattern \"src/**/*.{ts,tsx}\" --min-tokens 100 --threshold 3 --reporters console --absolute && vite build --config vite.server.config.ts && vite build --config vite.electron.main.config.ts && vite build --config vite.electron.preload.config.ts && vite build --config vite.electron.renderer.config.ts && sh -c 'if [ -z \"${DISPLAY}${WAYLAND_DISPLAY}\" ] && command -v xvfb-run >/dev/null 2>&1; then xvfb-run -a playwright test; else playwright test; fi'",
+    "test": "npm run icons:build && tsc --noEmit && biome check . && npm run icons:check && swagger-cli validate docs/requirements/GOOSE_SERVER_OPENAPI.json && vitest run && knip && dpdm --exit-code circular:1 --warning false --tree false \"./src/**/*.{ts,tsx}\" && jscpd --pattern \"src/**/*.{ts,tsx}\" --min-tokens 100 --threshold 3 --reporters console --absolute && npm run audit:prod && npm run build:desktop && sh -c 'if [ -z \"${DISPLAY}${WAYLAND_DISPLAY}\" ] && command -v xvfb-run >/dev/null 2>&1; then xvfb-run -a playwright test; else playwright test; fi'",
     "format": "biome check --write ."
+  },
+  "build": {
+    "appId": "com.goose.agent",
+    "productName": "Goose Agent",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      ".vite/build/**/*",
+      ".vite/renderer/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "src/desktop/renderer/assets/app-icons/generated/icon.icns"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "src/desktop/renderer/assets/app-icons/generated/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "icon": "src/desktop/renderer/assets/app-icons/generated/icon.png"
+    }
   },
   "type": "module",
   "dependencies": {
@@ -42,21 +81,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@electron-forge/cli": "^7.11.1",
-    "@electron-forge/maker-deb": "^7.11.1",
-    "@electron-forge/maker-dmg": "^7.11.1",
-    "@electron-forge/maker-rpm": "^7.11.1",
-    "@electron-forge/maker-wix": "^7.11.1",
-    "@electron-forge/plugin-vite": "^7.11.1",
+    "@apidevtools/swagger-cli": "^4.0.4",
     "@playwright/test": "^1.58.2",
-    "@redocly/openapi-cli": "^0.12.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^25.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
     "dpdm": "^4.0.1",
     "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
     "jscpd": "^4.0.8",
     "jsdom": "^28.1.0",
     "knip": "^5.64.1",
@@ -64,6 +99,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.5",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wait-on": "^9.0.1"
   }
 }

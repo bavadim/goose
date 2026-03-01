@@ -15,6 +15,9 @@ import {
   ScrollArea,
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
   Sidebar,
   Skeleton,
@@ -56,7 +59,13 @@ describe("MUST keep core ui kit exports consumable", () => {
 
         <Sheet defaultOpen>
           <SheetTrigger>Open sheet</SheetTrigger>
-          <SheetContent>Sheet content</SheetContent>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Sheet title</SheetTitle>
+              <SheetDescription>Sheet description</SheetDescription>
+            </SheetHeader>
+            Sheet content
+          </SheetContent>
         </Sheet>
 
         <Tabs defaultValue="a">
