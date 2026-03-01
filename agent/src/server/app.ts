@@ -1,6 +1,12 @@
+import { randomUUID } from "node:crypto";
 import swagger from "@fastify/swagger";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 
+import type {
+  ClientToServerMessage,
+  ServerToClientMessage,
+} from "../core/protocol/index.js";
+import { isClientToServerMessage } from "../core/protocol/index.js";
 import { buildSsePayload, resolveResponse } from "./responder.js";
 import {
   type OpenAPISpec,
@@ -32,6 +38,53 @@ type ReplyRequest = FastifyRequest<{
     };
   };
 }>;
+const desktopEventQueue: ServerToClientMessage[] = [];
+
+const enqueueDesktopEvent = (message: ServerToClientMessage): void => {
+  desktopEventQueue.push(message);
+  while (desktopEventQueue.length > 100) {
+    desktopEventQueue.shift();
+  }
+};
+
+const dequeueDesktopEvent = (): ServerToClientMessage => {
+  const existing = desktopEventQueue.shift();
+  if (existing) {
+    return existing;
+  }
+  return {
+    id: randomUUID(),
+    topic: "event.forward",
+    sentAt: new Date().toISOString(),
+    payload: {
+      event: "focus-input",
+    },
+  };
+};
+
+const toDeterministicInvalidMessageError = (): {
+  code: string;
+  message: string;
+} => ({
+  code: "IPC_INVALID_INPUT",
+  message: "Invalid desktop message envelope",
+});
+
+const dispatchDesktopClientMessage = (
+  message: ClientToServerMessage,
+): { accepted: true; echoedTopic: string } => {
+  // TODO(v2): connect to real agent runtime bus instead of stub echo.
+  enqueueDesktopEvent({
+    id: randomUUID(),
+    topic: "event.forward",
+    sentAt: new Date().toISOString(),
+    payload: {
+      event: "new-chat",
+      payload: { sourceTopic: message.topic },
+    },
+  });
+  return { accepted: true, echoedTopic: message.topic };
+};
 
 const isPublicPath = (path: string): boolean => PUBLIC_PATHS.has(path);
 
@@ -191,6 +244,31 @@ export const buildApp = (): ReturnType<typeof Fastify> => {
     mode: "dynamic",
     openapi: spec as never,
   });
+
+  app.post(
+    "/desktop/messages",
+    { preHandler: withAuth(secretKey) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!isClientToServerMessage(request.body)) {
+        reply.code(400).send(toDeterministicInvalidMessageError());
+        return;
+      }
+      const result = dispatchDesktopClientMessage(request.body);
+      reply.code(200).send(result);
+    },
+  );
+
+  app.get(
+    "/desktop/messages/stream",
+    { preHandler: withAuth(secretKey) },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const nextEvent = dequeueDesktopEvent();
+      reply
+        .code(200)
+        .type("text/event-stream")
+        .send(`data: ${JSON.stringify(nextEvent)}\n\n`);
+    },
+  );
 
   app.get("/openapi.json", async () => spec);
   registerOpenApiRoutes(spec, app, secretKey);

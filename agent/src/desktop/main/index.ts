@@ -1,14 +1,27 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserWindowConstructorOptions } from "electron";
-import { BrowserWindow, Menu, Notification, app, ipcMain } from "electron";
+import {
+  BrowserWindow,
+  Menu,
+  Notification,
+  app,
+  dialog,
+  ipcMain,
+  shell,
+} from "electron";
 import { createLogger } from "../../logging/index.js";
+import {
+  DesktopServerMessageBridge,
+  IPC_MESSAGE_EVENT_CHANNEL,
+  MainEventBus,
+  registerDesktopIpc,
+} from "../ipc/index.js";
 import type { SendLogsResult } from "../shared/api.js";
 import { runWindowsPreflight } from "../windowsPreflight.js";
-import { MainEventBus } from "./ipc/events.js";
-import { registerDesktopIpc } from "./ipc/register.js";
 import { NotificationService } from "./notifications/service.js";
 import { executeSendLogsRequest } from "./send-logs.js";
 import { createElectronSecretCrypto } from "./settings/secrets/crypto.js";
@@ -72,6 +85,16 @@ let settingsStore: SettingsStore | null = null;
 let notificationService: NotificationService | null = null;
 let isSendingLogs = false;
 const eventBus = new MainEventBus(() => mainWindow?.webContents ?? null);
+const messageBridge = new DesktopServerMessageBridge({
+  backendUrl: () => backendUrl,
+  secretKey: () => backendSecretKey,
+  eventBus,
+  onMessage: (message) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_MESSAGE_EVENT_CHANNEL, message);
+    }
+  },
+});
 const logger = createLogger("desktop-main");
 
 const startBackend = async (
@@ -122,13 +145,14 @@ const startBackend = async (
 };
 
 const shutdownBackend = (): void => {
+  messageBridge.stop();
   if (!backendProcess || backendProcess.killed) {
     return;
   }
   backendProcess.kill("SIGTERM");
 };
 
-const createWindow = (): void => {
+const createWindow = (): BrowserWindow => {
   const windowIcon = path.join(generatedIconsDir, "icon.png");
   const options: BrowserWindowConstructorOptions = {
     width: 980,
@@ -152,6 +176,8 @@ const createWindow = (): void => {
     const file = path.join(currentDir, "../renderer/main_window/index.html");
     void mainWindow.loadFile(file);
   }
+
+  return mainWindow;
 };
 
 const sendLogsFromDesktop = async (): Promise<SendLogsResult> => {
@@ -227,6 +253,72 @@ const createApplicationMenu = (): void => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 };
 
+const ensureMainWindow = (): BrowserWindow => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
+  }
+  return createWindow();
+};
+
+const resolveHostPort = (): string | null => {
+  if (!backendUrl) {
+    return null;
+  }
+  try {
+    const parsed = new URL(backendUrl);
+    return parsed.host;
+  } catch {
+    return null;
+  }
+};
+
+const normalizeFsPath = (rawPath: string): string => path.normalize(rawPath);
+
+const readFileSafe = async (
+  filePath: string,
+): Promise<{
+  file: string;
+  filePath: string;
+  error: string | null;
+  found: boolean;
+}> => {
+  const normalized = normalizeFsPath(filePath);
+  try {
+    const file = await fs.promises.readFile(normalized, "utf8");
+    return {
+      file,
+      filePath: normalized,
+      error: null,
+      found: true,
+    };
+  } catch (error: unknown) {
+    return {
+      file: "",
+      filePath: normalized,
+      error: error instanceof Error ? error.message : String(error),
+      found: false,
+    };
+  }
+};
+
+const listFilesSafe = async (
+  dirPath: string,
+  extension?: string,
+): Promise<string[]> => {
+  const normalized = normalizeFsPath(dirPath);
+  const entries = await fs.promises.readdir(normalized, {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(normalized, entry.name));
+
+  if (!extension) {
+    return files;
+  }
+  return files.filter((file) => path.extname(file) === extension);
+};
+
 registerDesktopIpc({
   ipcMain,
   rpc: {
@@ -238,6 +330,82 @@ registerDesktopIpc({
       isDev,
     }),
     sendLogs: () => sendLogsFromDesktop(),
+    getGoosedHostPort: () => resolveHostPort(),
+    chooseDirectory: async () =>
+      dialog.showOpenDialog(ensureMainWindow(), {
+        properties: ["openDirectory", "createDirectory"],
+      }),
+    selectFileOrDirectory: async (defaultPath) => {
+      const result = await dialog.showOpenDialog(ensureMainWindow(), {
+        properties: ["openFile", "openDirectory", "createDirectory"],
+        ...(defaultPath ? { defaultPath } : {}),
+      });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    readFile: (filePath) => readFileSafe(filePath),
+    writeFile: async (filePath, content) => {
+      await fs.promises.writeFile(normalizeFsPath(filePath), content, "utf8");
+      return true;
+    },
+    ensureDirectory: async (dirPath) => {
+      await fs.promises.mkdir(normalizeFsPath(dirPath), { recursive: true });
+      return true;
+    },
+    listFiles: (dirPath, extension) => listFilesSafe(dirPath, extension),
+    getAllowedExtensions: () => [".md", ".txt", ".json", ".yaml", ".yml"],
+    openDirectoryInExplorer: async (targetPath) => {
+      const result = await shell.openPath(normalizeFsPath(targetPath));
+      return result.length === 0;
+    },
+    addRecentDir: (dir) => {
+      app.addRecentDocument(normalizeFsPath(dir));
+      return true;
+    },
+    openExternal: (url) => shell.openExternal(url),
+    fetchMetadata: async (url) => {
+      const response = await fetch(url, { method: "HEAD" });
+      return response.headers.get("content-type") ?? "";
+    },
+    checkOllama: async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:11434/api/tags", {
+          method: "GET",
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    },
+    sendClientMessage: async (payload) => {
+      const message = payload as {
+        id?: unknown;
+        topic?: unknown;
+        sentAt?: unknown;
+        payload?: unknown;
+      };
+      if (
+        typeof message.id !== "string" ||
+        typeof message.topic !== "string" ||
+        typeof message.sentAt !== "string"
+      ) {
+        throw {
+          code: "IPC_INVALID_INPUT",
+          message: "Invalid client message envelope",
+        };
+      }
+      const result = await messageBridge.send({
+        id: message.id,
+        topic: message.topic,
+        sentAt: message.sentAt,
+        ...(message.payload && typeof message.payload === "object"
+          ? { payload: message.payload as Record<string, unknown> }
+          : {}),
+      });
+      if (!result.ok) {
+        throw result.error;
+      }
+      return result.data;
+    },
   },
   cmd: {
     eventBus,
@@ -248,6 +416,31 @@ registerDesktopIpc({
     },
     logInfo: (message) => {
       logger.info("renderer_log_info", { message });
+    },
+    getWindowForEvent: (event) => BrowserWindow.fromWebContents(event.sender),
+    ensureMainWindow: () => ensureMainWindow(),
+    restartApp: () => {
+      app.relaunch();
+      app.quit();
+    },
+    openInChrome: async (url) => {
+      await shell.openExternal(url);
+    },
+    getAppVersion: () => app.getVersion(),
+    dispatchClientMessage: async (topic, payload) => {
+      const result = await messageBridge.send({
+        id: randomUUID(),
+        topic,
+        sentAt: new Date().toISOString(),
+        ...(payload ? { payload } : {}),
+      });
+      if (!result.ok) {
+        logger.warn("bridge_send_failed", {
+          topic,
+          code: result.error.code,
+          message: result.error.message,
+        });
+      }
     },
   },
 });
@@ -284,6 +477,7 @@ void app.whenReady().then(async () => {
       backendProcess = started.process;
       backendUrl = started.baseUrl;
       backendSecretKey = started.secretKey;
+      messageBridge.start();
     } catch (error: unknown) {
       backendError = error instanceof Error ? error.message : String(error);
       logger.error("backend_start_failed", {
@@ -299,11 +493,11 @@ void app.whenReady().then(async () => {
     }
   }
   createApplicationMenu();
-  createWindow();
+  ensureMainWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      ensureMainWindow();
     }
   });
 });

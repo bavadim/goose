@@ -1,3 +1,9 @@
+import type {
+  ClientToServerMessage,
+  ProtocolResult,
+  ServerToClientMessage,
+} from "../../core/protocol/index.js";
+
 export type DesktopState = {
   backendUrl: string;
   backendError: string;
@@ -12,25 +18,6 @@ export type SendLogsResult = {
   artifactPath?: string;
   remotePath?: string;
 };
-
-export type IpcErrorCode =
-  | "IPC_INVALID_INPUT"
-  | "IPC_UNAUTHORIZED"
-  | "IPC_UNSUPPORTED_PLATFORM"
-  | "IPC_NOT_FOUND"
-  | "IPC_IO_ERROR"
-  | "IPC_INTERNAL";
-
-export type IpcError = {
-  code: IpcErrorCode;
-  message: string;
-  details?: Record<string, unknown>;
-  retryable?: boolean;
-};
-
-export type IpcResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: IpcError };
 
 export type RpcRequestMap = {
   "directory-chooser": undefined;
@@ -71,6 +58,7 @@ export type RpcRequestMap = {
   "get-current-version": undefined;
   "desktop:get-state": undefined;
   "desktop:send-logs": undefined;
+  "desktop:send-message": ClientToServerMessage;
 };
 
 export type RpcResponseMap = {
@@ -120,6 +108,7 @@ export type RpcResponseMap = {
   "get-current-version": string;
   "desktop:get-state": DesktopState;
   "desktop:send-logs": SendLogsResult;
+  "desktop:send-message": { accepted: true };
 };
 
 export type CmdPayloadMap = {
@@ -203,6 +192,7 @@ export const RPC_CHANNELS = [
   "get-current-version",
   "desktop:get-state",
   "desktop:send-logs",
+  "desktop:send-message",
 ] as const;
 
 export const CMD_CHANNELS = [
@@ -246,72 +236,32 @@ export const IPC_INVENTORY = {
   event: EVENT_CHANNELS,
 } as const;
 
-const DEFAULT_IPC_ERROR_CODE: IpcErrorCode = "IPC_INTERNAL";
+export type DesktopEventUnsubscribe = () => void;
 
-const isIpcErrorCode = (value: unknown): value is IpcErrorCode => {
-  return (
-    value === "IPC_INVALID_INPUT" ||
-    value === "IPC_UNAUTHORIZED" ||
-    value === "IPC_UNSUPPORTED_PLATFORM" ||
-    value === "IPC_NOT_FOUND" ||
-    value === "IPC_IO_ERROR" ||
-    value === "IPC_INTERNAL"
-  );
-};
-
-export const normalizeIpcError = (
-  error: unknown,
-  fallbackMessage: string,
-): IpcError => {
-  if (error && typeof error === "object") {
-    const candidate = error as {
-      code?: unknown;
-      message?: unknown;
-      details?: unknown;
-      retryable?: unknown;
-      cause?: unknown;
-    };
-
-    if (
-      isIpcErrorCode(candidate.code) &&
-      typeof candidate.message === "string"
-    ) {
-      const normalized: IpcError = {
-        code: candidate.code,
-        message: candidate.message,
-      };
-      if (candidate.details && typeof candidate.details === "object") {
-        normalized.details = candidate.details as Record<string, unknown>;
-      }
-      if (typeof candidate.retryable === "boolean") {
-        normalized.retryable = candidate.retryable;
-      }
-      return {
-        ...normalized,
-      };
-    }
-
-    if (candidate.cause && typeof candidate.cause === "object") {
-      return normalizeIpcError(candidate.cause, fallbackMessage);
-    }
-
-    if (typeof candidate.message === "string" && candidate.message.length > 0) {
-      return {
-        code: DEFAULT_IPC_ERROR_CODE,
-        message: candidate.message,
-      };
-    }
-  }
-
-  if (error instanceof Error && error.message.length > 0) {
-    return {
-      code: DEFAULT_IPC_ERROR_CODE,
-      message: error.message,
-    };
-  }
-
-  return {
-    code: DEFAULT_IPC_ERROR_CODE,
-    message: fallbackMessage,
-  };
+export type DesktopApi = {
+  getState: () => Promise<DesktopState>;
+  sendLogs: () => Promise<SendLogsResult>;
+  sendMessage: (
+    message: ClientToServerMessage,
+  ) => Promise<ProtocolResult<{ accepted: true }>>;
+  subscribeMessages: (
+    listener: (message: ServerToClientMessage) => void,
+  ) => DesktopEventUnsubscribe;
+  rendererReady: () => void;
+  invoke: <C extends RpcChannel>(
+    channel: C,
+    ...args: RpcRequestMap[C] extends undefined
+      ? []
+      : [payload: RpcRequestMap[C]]
+  ) => Promise<ProtocolResult<RpcResponseMap[C]>>;
+  send: <C extends CmdChannel>(
+    channel: C,
+    ...args: CmdPayloadMap[C] extends undefined
+      ? []
+      : [payload: CmdPayloadMap[C]]
+  ) => void;
+  on: <C extends EventChannel>(
+    channel: C,
+    listener: (payload: EventPayloadMap[C]) => void,
+  ) => DesktopEventUnsubscribe;
 };

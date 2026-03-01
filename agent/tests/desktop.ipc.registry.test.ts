@@ -1,14 +1,62 @@
 import { describe, expect, it, vi } from "vitest";
-import { MainEventBus } from "../src/desktop/main/ipc/events.js";
-import { registerDesktopIpc } from "../src/desktop/main/ipc/register.js";
 import {
   CMD_CHANNELS,
   IPC_INVENTORY,
   RPC_CHANNELS,
-} from "../src/desktop/shared/ipc.js";
+} from "../src/desktop/ipc/contracts.js";
+import { MainEventBus } from "../src/desktop/ipc/event-bus.js";
+import { registerDesktopIpc } from "../src/desktop/ipc/main-transport.js";
 
 type HandleFn = (event: unknown, payload: unknown) => unknown;
 type OnFn = (event: { sender: { id: number } }, payload: unknown) => void;
+
+const makeRpcDeps = () => ({
+  getState: () => ({
+    backendUrl: "http://127.0.0.1:43111",
+    backendError: "",
+    windowsPreflightMessages: [],
+    appDirs: null,
+    isDev: true as const,
+  }),
+  sendLogs: async () => ({ ok: true as const, message: "ok" }),
+  getGoosedHostPort: () => "127.0.0.1:43111",
+  chooseDirectory: async () => ({ canceled: false, filePaths: ["/tmp"] }),
+  selectFileOrDirectory: async () => "/tmp",
+  readFile: async () => ({
+    file: "",
+    filePath: "/tmp",
+    error: null,
+    found: true,
+  }),
+  writeFile: async () => true,
+  ensureDirectory: async () => true,
+  listFiles: async () => ["/tmp/a"],
+  getAllowedExtensions: () => [".md"],
+  openDirectoryInExplorer: async () => true,
+  addRecentDir: () => true,
+  openExternal: async () => undefined,
+  fetchMetadata: async () => "text/plain",
+  checkOllama: async () => true,
+  sendClientMessage: async () => ({ accepted: true as const }),
+});
+
+const makeCmdDeps = (eventBus: MainEventBus) => ({
+  eventBus,
+  notify: () => {},
+  logInfo: () => {},
+  getWindowForEvent: () => null,
+  ensureMainWindow: () => ({
+    show: () => {},
+    focus: () => {},
+    hide: () => {},
+    close: () => {},
+    reload: () => {},
+  }),
+  restartApp: () => {},
+  openInChrome: async () => undefined,
+  getAppVersion: () => "1.0.0",
+  dispatchClientMessage: async () => undefined,
+});
 
 describe("MUST desktop IPC registry requirements", () => {
   it("MUST register handler maps that exactly match typed IPC inventory", () => {
@@ -28,21 +76,8 @@ describe("MUST desktop IPC registry requirements", () => {
 
     const registered = registerDesktopIpc({
       ipcMain: fakeIpcMain as never,
-      rpc: {
-        getState: () => ({
-          backendUrl: "http://127.0.0.1:43111",
-          backendError: "",
-          windowsPreflightMessages: [],
-          appDirs: null,
-          isDev: true,
-        }),
-        sendLogs: async () => ({ ok: true, message: "ok" }),
-      },
-      cmd: {
-        eventBus,
-        notify: () => {},
-        logInfo: () => {},
-      },
+      rpc: makeRpcDeps(),
+      cmd: makeCmdDeps(eventBus),
     });
 
     expect(Object.keys(registered.rpcHandlers).sort()).toEqual(
@@ -67,20 +102,10 @@ describe("MUST desktop IPC registry requirements", () => {
     registerDesktopIpc({
       ipcMain: fakeIpcMain as never,
       rpc: {
-        getState: () => ({
-          backendUrl: "http://127.0.0.1:43111",
-          backendError: "",
-          windowsPreflightMessages: [],
-          appDirs: null,
-          isDev: true,
-        }),
-        sendLogs: async () => ({ ok: true, message: "sent" }),
+        ...makeRpcDeps(),
+        sendLogs: async () => ({ ok: true as const, message: "sent" }),
       },
-      cmd: {
-        eventBus: new MainEventBus(() => null),
-        notify: () => {},
-        logInfo: () => {},
-      },
+      cmd: makeCmdDeps(new MainEventBus(() => null)),
     });
 
     const stateHandler = handles.get("desktop:get-state");
@@ -112,21 +137,8 @@ describe("MUST desktop IPC registry requirements", () => {
         },
         on: () => {},
       } as never,
-      rpc: {
-        getState: () => ({
-          backendUrl: "",
-          backendError: "",
-          windowsPreflightMessages: [],
-          appDirs: null,
-          isDev: true,
-        }),
-        sendLogs: async () => ({ ok: true, message: "ok" }),
-      },
-      cmd: {
-        eventBus: new MainEventBus(() => null),
-        notify: () => {},
-        logInfo: () => {},
-      },
+      rpc: makeRpcDeps(),
+      cmd: makeCmdDeps(new MainEventBus(() => null)),
     });
 
     const handler = handles.get("get-settings");
@@ -158,21 +170,8 @@ describe("MUST desktop IPC registry requirements", () => {
         handle: () => {},
         on: () => {},
       } as never,
-      rpc: {
-        getState: () => ({
-          backendUrl: "",
-          backendError: "",
-          windowsPreflightMessages: [],
-          appDirs: null,
-          isDev: true,
-        }),
-        sendLogs: async () => ({ ok: true, message: "ok" }),
-      },
-      cmd: {
-        eventBus,
-        notify: () => {},
-        logInfo: () => {},
-      },
+      rpc: makeRpcDeps(),
+      cmd: makeCmdDeps(eventBus),
     }).cmdHandlers;
 
     cmdHandlers["react-ready"](undefined, { sender: { id: 42 } } as never);

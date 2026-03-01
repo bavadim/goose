@@ -1,4 +1,4 @@
-import type { EventChannel, EventPayloadMap } from "../../shared/ipc.js";
+import type { EventChannel, EventPayloadMap } from "./contracts.js";
 
 type RendererSink = {
   id: number;

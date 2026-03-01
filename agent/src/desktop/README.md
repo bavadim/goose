@@ -7,7 +7,7 @@
 - desktop-клиент владеет настройками и секретами;
 - backend (`server.js`) запускается только из desktop main-процесса;
 - backend получает конфиг и секреты только через env при старте;
-- UI использует единый UI kit через общий barrel export.
+- desktop использует общие core-модули (`src/core/*`) для protocol, IPC, UI contracts и agent skeleton.
 
 ## Layers
 
@@ -19,7 +19,8 @@
 - создание директорий приложения (`root/config/logs/cache`);
 - запуск и остановка backend sidecar-процесса;
 - health-check backend;
-- возврат runtime-состояния в renderer через IPC `desktop:get-state`.
+- wiring typed IPC registry из `src/desktop/ipc/main-transport.ts`;
+- bridge typed сообщений desktop <-> server через `DesktopServerMessageBridge`.
 
 ### 2) Settings/Secrets Service
 `src/desktop/main/settings/store.ts`
@@ -51,8 +52,11 @@
 ### 5) Preload Bridge
 `src/desktop/preload/index.ts`
 
-Экспортирует безопасный `window.desktopApi`.
-Сейчас публичный IPC-поверхностный контракт минимален: `getState()`.
+Экспортирует безопасный `window.desktopApi` через `createDesktopApi` из `src/desktop/ipc/preload-transport.ts`.
+Публичный контракт:
+- `getState`, `sendLogs`,
+- `sendMessage`, `subscribeMessages`,
+- internal typed `invoke/send/on` для compatibility tests.
 
 ### 6) Renderer
 `src/desktop/renderer/*`
@@ -70,8 +74,12 @@
 - anti-spam: dedup одинаковых событий в окне 30 секунд;
 - payload безопасный: без plaintext секретов и без сырых ошибок.
 
-### 8) Shared and Domain Types
-- `src/desktop/shared/api.ts` — runtime API между preload и renderer.
+### 8) Core Contracts
+- `src/core/protocol/*` — typed протокол desktop <-> server (envelopes, topics, guards).
+- `src/desktop/ipc/*` — typed Electron IPC contracts + transport + error normalization.
+- `src/desktop/renderer/ui-kit/contracts.ts` — typed контракты публичных UI primitives.
+- `src/server/agent/*` — skeleton агентского цикла (state transitions, Provider/Extension stubs).
+- `src/desktop/shared/api.ts` — thin re-export runtime API для renderer.
 - `src/desktop/main/settings/config.ts` и `src/desktop/main/settings/settings.ts` — доменные типы и нормализация настроек.
 
 ## Runtime Data Flow
@@ -110,6 +118,7 @@
 Правило:
 - новые базовые UI-компоненты экспортируются через этот barrel;
 - feature-UI импортирует компоненты из единой точки, а не из отдельных файлов.
+- типовые публичные контракты компонентов определяются в `src/desktop/renderer/ui-kit/contracts.ts`.
 
 ## Non-Goals (Current)
 - Нет отдельного server-side API для управления desktop settings/secrets.
@@ -119,6 +128,10 @@
 
 ## Key Files Map
 - Main runtime: `src/desktop/main/index.ts`
+- Protocol core: `src/core/protocol/*`
+- IPC core: `src/desktop/ipc/*`
+- Agent skeleton: `src/server/agent/*`
+- UI contracts: `src/desktop/renderer/ui-kit/contracts.ts`
 - Settings service: `src/desktop/main/settings/store.ts`
 - Notifications service: `src/desktop/main/notifications/service.ts`
 - Secret internals: `src/desktop/main/settings/secrets/*`

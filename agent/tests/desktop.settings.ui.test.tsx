@@ -23,6 +23,14 @@ const makeApi = (overrides?: Partial<Awaited<ReturnType<DesktopApi["getState"]>>
     ...overrides,
   })),
   sendLogs: vi.fn(async () => ({ ok: true, message: "ok" })),
+  sendMessage: vi.fn(
+    async () =>
+      ({
+        ok: true,
+        data: { accepted: true },
+      }) as const,
+  ),
+  subscribeMessages: vi.fn(() => () => {}),
   rendererReady: vi.fn(),
 });
 
