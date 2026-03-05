@@ -72,7 +72,6 @@
     "fastify": "^5.7.4",
     "icon-gen": "^5.0.0",
     "lucide-react": "^0.575.0",
-    "openapi-sampler": "^1.7.0",
     "pino": "^10.3.1",
     "png-to-ico": "^3.0.1",
     "react": "^19.2.4",

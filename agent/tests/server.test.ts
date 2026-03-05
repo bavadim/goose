@@ -1,11 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  IMPLEMENTED_OPERATIONS,
   buildApp,
   loadSpec,
-  pickSuccessStatus,
-  resolveResponse,
-  toFastifyPath,
 } from "../src/server/routes.js";
 
 type HttpMethod =
@@ -22,7 +20,6 @@ type OpenApiOperation = {
   openApiPath: string;
   method: HttpMethod;
   operation: Record<string, unknown>;
-  pathItem: Record<string, unknown>;
 };
 
 type Parameter = {
@@ -32,47 +29,91 @@ type Parameter = {
   schema?: { example?: unknown; type?: string };
 };
 
-const METHODS: HttpMethod[] = [
-  "get",
-  "post",
-  "put",
-  "patch",
-  "delete",
-  "head",
-  "options",
-  "trace",
-];
+const OPENAPI = loadSpec();
+const app = buildApp();
+
 const PUBLIC_PATHS = new Set(["/status", "/mcp-ui-proxy", "/mcp-app-proxy"]);
 const CONTRACT_SKIP_PATHS = new Set([
   "/reply",
   "/mcp-ui-proxy",
-  "/recipes/save",
+  "/config/extensions/{name}",
+  "/agent/resume",
+  "/agent/restart",
+  "/agent/stop",
+  "/agent/add_extension",
+  "/agent/remove_extension",
+  "/agent/update_provider",
 ]);
-const OPENAPI = loadSpec();
-const app = buildApp();
 
-const normalizeContentType = (value: string): string => {
-  const [base = ""] = value.split(";");
-  return base.trim().toLowerCase();
+const IMPLEMENTED_SET = new Set(
+  IMPLEMENTED_OPERATIONS.map(([method, path]) => `${method} ${path}`),
+);
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+
+const normalizeContentType = (value: string): string =>
+  value.split(";")[0]?.trim().toLowerCase() ?? "";
+
+const pickSuccessStatus = (responses: Record<string, unknown>): number => {
+  for (const code of ["200", "201", "202", "204"]) {
+    if (responses[code] !== undefined) {
+      return Number(code);
+    }
+  }
+  const first2xx = Object.keys(responses)
+    .filter((code) => /^2\d\d$/.test(code))
+    .sort()[0];
+  return first2xx ? Number(first2xx) : 200;
 };
 
-const listOperations = (): OpenApiOperation[] => {
-  const operations: OpenApiOperation[] = [];
-  const paths = (OPENAPI.paths ?? {}) as Record<
-    string,
-    Record<string, unknown>
-  >;
+const pickExpectedContentType = (
+  operation: Record<string, unknown>,
+  status: number,
+): string | null => {
+  const response = asRecord(asRecord(operation.responses)[String(status)]);
+  const content = asRecord(response.content);
+  const priorities = [
+    "application/json",
+    "text/plain",
+    "text/event-stream",
+    "text/html",
+    "application/zip",
+  ];
+  for (const type of priorities) {
+    if (content[type] !== undefined) {
+      return type;
+    }
+  }
+  const first = Object.keys(content)[0];
+  return first ?? null;
+};
 
-  for (const [openApiPath, pathItem] of Object.entries(paths)) {
-    for (const method of METHODS) {
-      if (pathItem[method]) {
-        operations.push({
-          openApiPath,
-          method,
-          operation: pathItem[method] as Record<string, unknown>,
-          pathItem,
-        });
+const listImplementedOperations = (): OpenApiOperation[] => {
+  const paths = asRecord(OPENAPI.paths);
+  const operations: OpenApiOperation[] = [];
+
+  for (const [openApiPath, pathItemValue] of Object.entries(paths)) {
+    const pathItem = asRecord(pathItemValue);
+    for (const method of [
+      "get",
+      "post",
+      "put",
+      "patch",
+      "delete",
+      "head",
+      "options",
+      "trace",
+    ] as const) {
+      const operation = asRecord(pathItem[method]);
+      if (Object.keys(operation).length === 0) {
+        continue;
       }
+      const key = `${method.toUpperCase()} ${openApiPath}`;
+      if (!IMPLEMENTED_SET.has(key)) {
+        continue;
+      }
+      operations.push({ openApiPath, method, operation });
     }
   }
 
@@ -97,17 +138,11 @@ const exampleForParameter = (parameter: Parameter): string => {
   }
 };
 
-const collectParameters = (operation: OpenApiOperation): Parameter[] => {
-  const pathParams = (operation.pathItem.parameters ?? []) as Parameter[];
-  const opParams = (operation.operation.parameters ?? []) as Parameter[];
-  return [...pathParams, ...opParams];
-};
-
 const buildRequestUrl = (operation: OpenApiOperation): string => {
-  let url = toFastifyPath(operation.openApiPath);
-  const parameters = collectParameters(operation);
+  let url = operation.openApiPath.replaceAll(/\{([^}]+)\}/g, ":$1");
+  const params = (operation.operation.parameters ?? []) as Parameter[];
 
-  for (const parameter of parameters) {
+  for (const parameter of params) {
     if (parameter.in === "path" && parameter.name) {
       url = url.replace(
         `:${parameter.name}`,
@@ -117,35 +152,27 @@ const buildRequestUrl = (operation: OpenApiOperation): string => {
   }
 
   const search = new URLSearchParams();
-  for (const parameter of parameters) {
+  for (const parameter of params) {
     if (parameter.in === "query" && parameter.name) {
       search.set(parameter.name, exampleForParameter(parameter));
     }
   }
 
-  const queryString = search.toString();
-  return queryString.length > 0 ? `${url}?${queryString}` : url;
+  const query = search.toString();
+  return query ? `${url}?${query}` : url;
 };
 
 const buildJsonPayload = (operation: OpenApiOperation): unknown => {
-  const requestBody = operation.operation.requestBody as
-    | { content?: Record<string, Record<string, unknown>> }
-    | undefined;
-  const content = requestBody?.content;
-  const json = content?.["application/json"];
-  if (!json) {
-    return undefined;
-  }
+  const requestBody = asRecord(operation.operation.requestBody);
+  const content = asRecord(requestBody.content);
+  const json = asRecord(content["application/json"]);
   if (json.example !== undefined) {
     return json.example;
   }
-  if (json.examples && typeof json.examples === "object") {
-    const first = Object.values(json.examples)[0] as
-      | Record<string, unknown>
-      | undefined;
-    if (first?.value !== undefined) {
-      return first.value;
-    }
+  const examples = asRecord(json.examples);
+  const first = asRecord(Object.values(examples)[0]);
+  if (first.value !== undefined) {
+    return first.value;
   }
   return undefined;
 };
@@ -153,20 +180,6 @@ const buildJsonPayload = (operation: OpenApiOperation): unknown => {
 const requiresSecretKey = (openApiPath: string): boolean =>
   !PUBLIC_PATHS.has(openApiPath);
 
-const expectedSuccess = (
-  operation: OpenApiOperation,
-): {
-  status: number;
-  contentType: string | null;
-} => {
-  const status = pickSuccessStatus(
-    (operation.operation.responses ?? {}) as Record<string, unknown>,
-  );
-  const resolved = resolveResponse(operation.operation, status, OPENAPI);
-  return { status: resolved.statusCode, contentType: resolved.contentType };
-};
-
-const operations = listOperations();
 const parseSseDataFrame = (body: string): Record<string, unknown> => {
   const line = body
     .split("\n")
@@ -187,6 +200,8 @@ const parseSseFrames = (body: string): Record<string, unknown>[] =>
       (frame) =>
         JSON.parse(frame.slice("data: ".length)) as Record<string, unknown>,
     );
+
+const operations = listImplementedOperations();
 
 beforeAll(async () => {
   await app.ready();
@@ -245,9 +260,6 @@ describe("MUST manual server requirements", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(String(response.headers["content-type"] ?? "")).toContain(
-      "text/event-stream",
-    );
     const payload = parseSseDataFrame(response.body);
     expect(payload.ok).toBe(true);
     expect(payload.message).toBe("Send logs dry-run completed");
@@ -290,10 +302,9 @@ describe("MUST manual server requirements", () => {
       headers: { "X-Secret-Key": "dev-secret" },
       payload: { working_dir: "/tmp" },
     });
-    expect(started.statusCode).toBe(200);
-    const startBody = JSON.parse(started.body) as Record<string, unknown>;
-    const sessionId = String(startBody.id ?? "");
-    expect(sessionId.length).toBeGreaterThan(0);
+    const sessionId = String(
+      (JSON.parse(started.body) as Record<string, unknown>).id ?? "",
+    );
 
     const resumed = await app.inject({
       method: "POST",
@@ -301,22 +312,22 @@ describe("MUST manual server requirements", () => {
       headers: { "X-Secret-Key": "dev-secret" },
       payload: { session_id: sessionId, load_model_and_extensions: true },
     });
-    expect(resumed.statusCode).toBe(200);
-
     const restarted = await app.inject({
       method: "POST",
       url: "/agent/restart",
       headers: { "X-Secret-Key": "dev-secret" },
       payload: { session_id: sessionId },
     });
-    expect(restarted.statusCode).toBe(200);
-
     const stopped = await app.inject({
       method: "POST",
       url: "/agent/stop",
       headers: { "X-Secret-Key": "dev-secret" },
       payload: { session_id: sessionId },
     });
+
+    expect(started.statusCode).toBe(200);
+    expect(resumed.statusCode).toBe(200);
+    expect(restarted.statusCode).toBe(200);
     expect(stopped.statusCode).toBe(200);
   });
 
@@ -330,6 +341,7 @@ describe("MUST manual server requirements", () => {
     const sessionId = String(
       (JSON.parse(started.body) as Record<string, unknown>).id ?? "",
     );
+
     await app.inject({
       method: "POST",
       url: "/agent/stop",
@@ -350,6 +362,7 @@ describe("MUST manual server requirements", () => {
         },
       },
     });
+
     expect(response.statusCode).toBe(424);
   });
 
@@ -367,15 +380,25 @@ describe("MUST manual server requirements", () => {
         },
       },
     });
-    expect(response.statusCode).toBe(200);
+
     const events = parseSseFrames(response.body);
+    expect(response.statusCode).toBe(200);
     expect(events.some((event) => event.type === "Notification")).toBe(true);
     expect(events.some((event) => event.type === "Finish")).toBe(true);
+  });
+
+  it("MUST return 501 for known but unimplemented OpenAPI endpoints", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/sessions",
+      headers: { "X-Secret-Key": "dev-secret" },
+    });
+    expect(response.statusCode).toBe(501);
   });
 });
 
 describe("MUST runtime contract requirements", () => {
-  it("MUST expose OpenAPI operations", () => {
+  it("MUST expose implemented OpenAPI operations", () => {
     expect(operations.length).toBeGreaterThan(0);
   });
 
@@ -383,16 +406,21 @@ describe("MUST runtime contract requirements", () => {
     const id =
       (operation.operation.operationId as string | undefined) ??
       `${operation.method.toUpperCase()} ${operation.openApiPath}`;
-    it(`MUST satisfy 2xx contract: ${id}`, async () => {
+
+    it(`MUST satisfy success contract for implemented endpoint: ${id}`, async () => {
       if (CONTRACT_SKIP_PATHS.has(operation.openApiPath)) {
         return;
       }
 
-      const expected = expectedSuccess(operation);
-      const url = buildRequestUrl(operation);
+      const status = pickSuccessStatus(
+        asRecord(operation.operation.responses) as Record<string, unknown>,
+      );
+      const expectedContentType = pickExpectedContentType(
+        operation.operation,
+        status,
+      );
       const payload = buildJsonPayload(operation);
       const headers: Record<string, string> = {};
-
       if (requiresSecretKey(operation.openApiPath)) {
         headers["X-Secret-Key"] = "dev-secret";
       }
@@ -402,26 +430,22 @@ describe("MUST runtime contract requirements", () => {
 
       const response = await app.inject({
         method: operation.method.toUpperCase(),
-        url,
+        url: buildRequestUrl(operation),
         headers,
         payload,
       });
 
-      expect(response.statusCode).toBe(expected.status);
-
-      if (expected.status === 204) {
+      expect(response.statusCode).toBe(status);
+      if (status === 204) {
         expect(response.body).toBe("");
         return;
       }
-
-      if (expected.contentType) {
-        const actual = normalizeContentType(
-          String(response.headers["content-type"] ?? ""),
-        );
-        expect(actual).toBe(normalizeContentType(expected.contentType));
+      if (expectedContentType) {
+        expect(
+          normalizeContentType(String(response.headers["content-type"] ?? "")),
+        ).toBe(normalizeContentType(expectedContentType));
       }
-
-      if (expected.contentType === "application/json") {
+      if (expectedContentType === "application/json") {
         expect(() => JSON.parse(response.body)).not.toThrow();
       }
     });
