@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   build: {
-    outDir: ".vite/build",
+    outDir: "dist-electron",
+    emptyOutDir: false,
     sourcemap: true,
     lib: {
       entry: "src/server/index.ts",
@@ -10,7 +11,7 @@ export default defineConfig({
       fileName: () => "server.js",
     },
     rollupOptions: {
-      external: [/^node:/, "fastify", "@fastify/swagger", "openapi-sampler"],
+      external: [/^node:/, "fastify", "@fastify/swagger"],
     },
   },
 });

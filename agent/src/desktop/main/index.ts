@@ -25,7 +25,8 @@ import { createElectronSecretCrypto } from "./settings/secrets/crypto.js";
 import { SettingsStore, type SettingsStoreAppDirs } from "./settings/store.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const mainWindowViteDevServerUrl =
+const rendererDevServerUrl =
+  process.env.ELECTRON_RENDERER_URL ??
   (globalThis as { MAIN_WINDOW_VITE_DEV_SERVER_URL?: string })
     .MAIN_WINDOW_VITE_DEV_SERVER_URL ??
   process.env.MAIN_WINDOW_VITE_DEV_SERVER_URL;
@@ -283,10 +284,10 @@ const createWindow = (): BrowserWindow => {
 
   mainWindow = new BrowserWindow(options);
 
-  if (mainWindowViteDevServerUrl) {
-    void mainWindow.loadURL(mainWindowViteDevServerUrl);
+  if (rendererDevServerUrl) {
+    void mainWindow.loadURL(rendererDevServerUrl);
   } else {
-    const file = path.join(currentDir, "../renderer/main_window/index.html");
+    const file = path.join(currentDir, "../dist/index.html");
     void mainWindow.loadFile(file);
   }
 

@@ -1,5 +1,9 @@
 {
   "entry": [
+    "electron.vite.config.ts",
+    "src/server/index.ts",
+    "src/desktop/main/index.ts",
+    "src/desktop/preload/index.ts",
     "src/desktop/renderer/main.tsx",
     "src/desktop/renderer/index.html",
     "src/desktop/windowsPreflight.ts"

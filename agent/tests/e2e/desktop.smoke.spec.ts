@@ -56,7 +56,7 @@ test.describe("MUST desktop runtime requirements", () => {
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        path.resolve(".vite/build/main.js"),
+        path.resolve("dist-electron/main.js"),
       ],
       env: appEnv,
     });
