@@ -76,6 +76,10 @@ let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendUrl = "";
 let backendError = "";
 let backendSecretKey = "";
+let backendWatcher: fs.FSWatcher | null = null;
+let backendRestartTimer: NodeJS.Timeout | null = null;
+let backendRestartInProgress = false;
+let backendRestartQueued = false;
 let windowsPreflightMessages: string[] = [];
 let appDirs: SettingsStoreAppDirs | null = null;
 let settingsStore: SettingsStore | null = null;
@@ -141,6 +145,124 @@ const shutdownBackend = (): void => {
     return;
   }
   backendProcess.kill("SIGTERM");
+};
+
+const stopBackendForRestart = async (): Promise<void> => {
+  const child = backendProcess;
+  if (!child || child.killed) {
+    backendProcess = null;
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (done) {
+        return;
+      }
+      done = true;
+      clearTimeout(forceKillTimer);
+      clearTimeout(fallbackTimer);
+      child.removeListener("exit", onExit);
+      resolve();
+    };
+    const onExit = (): void => {
+      finish();
+    };
+
+    child.once("exit", onExit);
+    child.kill("SIGTERM");
+
+    const forceKillTimer = setTimeout(() => {
+      if (!child.killed) {
+        child.kill("SIGKILL");
+      }
+    }, 1500);
+    const fallbackTimer = setTimeout(() => {
+      finish();
+    }, 3000);
+  });
+
+  backendProcess = null;
+};
+
+const restartBackendInDev = async (): Promise<void> => {
+  if (!isDev || !appDirs) {
+    return;
+  }
+  if (backendRestartInProgress) {
+    backendRestartQueued = true;
+    return;
+  }
+
+  backendRestartInProgress = true;
+  try {
+    logger.info({ event: "backend_restart_started" });
+    await stopBackendForRestart();
+    const started = await startBackend(appDirs);
+    backendProcess = started.process;
+    backendUrl = started.baseUrl;
+    backendSecretKey = started.secretKey;
+    backendError = "";
+    logger.info({ event: "backend_restart_succeeded", baseUrl: backendUrl });
+  } catch (error: unknown) {
+    backendError = error instanceof Error ? error.message : String(error);
+    logger.error({
+      event: "backend_restart_failed",
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { message: String(error) },
+    });
+    notificationService?.notify({
+      code: "runtime.backend.start_failed",
+      context: { message: backendError },
+    });
+  } finally {
+    backendRestartInProgress = false;
+    if (backendRestartQueued) {
+      backendRestartQueued = false;
+      void restartBackendInDev();
+    }
+  }
+};
+
+const startBackendWatcher = (): void => {
+  if (!isDev || backendWatcher) {
+    return;
+  }
+
+  backendWatcher = fs.watch(currentDir, (_eventType, filename) => {
+    if (filename !== "server.js") {
+      return;
+    }
+    if (backendRestartTimer) {
+      clearTimeout(backendRestartTimer);
+    }
+    backendRestartTimer = setTimeout(() => {
+      logger.info({ event: "backend_bundle_changed", file: "server.js" });
+      void restartBackendInDev();
+    }, 250);
+  });
+
+  backendWatcher.on("error", (error) => {
+    logger.error({
+      event: "backend_watcher_failed",
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { message: String(error) },
+    });
+  });
+};
+
+const stopBackendWatcher = (): void => {
+  if (backendRestartTimer) {
+    clearTimeout(backendRestartTimer);
+    backendRestartTimer = null;
+  }
+  backendWatcher?.close();
+  backendWatcher = null;
 };
 
 const createWindow = (): BrowserWindow => {
@@ -444,6 +566,7 @@ void app.whenReady().then(async () => {
   }
   createApplicationMenu();
   ensureMainWindow();
+  startBackendWatcher();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -453,6 +576,7 @@ void app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
+  stopBackendWatcher();
   shutdownBackend();
   if (process.platform !== "darwin") {
     app.quit();
@@ -460,5 +584,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopBackendWatcher();
   shutdownBackend();
 });
