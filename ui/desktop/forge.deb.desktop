@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Goose
-Exec=/usr/lib/goose/Goose %U
-Icon=/usr/share/pixmaps/goose.png
+Name=Bavaduck
+Exec=/usr/lib/bavaduck/bavaduck %U
+Icon=/usr/share/pixmaps/bavaduck.png
 Terminal=false
 Type=Application
 Categories=Development;

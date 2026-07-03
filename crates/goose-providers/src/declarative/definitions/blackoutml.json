@@ -1,0 +1,26 @@
+{
+  "name": "blackoutml",
+  "engine": "openai",
+  "display_name": "BlackoutML",
+  "description": "OpenAI-compatible models via BlackoutML.",
+  "api_key_env": "BLACKOUTML_API_KEY",
+  "base_url": "https://openai.bavadim.xyz",
+  "base_path": "v1/responses",
+  "dynamic_models": true,
+  "models": [
+    {
+      "name": "gpt-5.5",
+      "context_limit": 128000,
+      "input_token_cost": 0.0005,
+      "output_token_cost": 0.003,
+      "currency": "RUB"
+    }
+  ],
+  "supports_streaming": true,
+  "requires_auth": true,
+  "preserves_thinking": true,
+  "setup_steps": [
+    "Get your BlackoutML API key",
+    "Paste the key above"
+  ]
+}
