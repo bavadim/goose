@@ -1,7 +1,7 @@
 {
   "name": "bavaduck-app",
   "productName": "Bavaduck",
-  "version": "1.41.0",
+  "version": "1.43.0",
   "description": "Bavaduck AI Assistant",
   "engines": {
     "node": "^24.10.0",
